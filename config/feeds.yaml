@@ -20,6 +20,36 @@ feeds:
     category: AI & Development
     priority: 5
 
+  one_useful_thing:
+    url: https://www.oneusefulthing.org/feed/
+    category: AI & Development
+    priority: 4
+    notes: Prof. Ethan Mollick on AI implications
+
+  interconnects:
+    url: https://interconnects.ai/feed/
+    category: AI & Development
+    priority: 4
+    notes: Nathan Lambert on AI research and policy
+
+  hyperdimensional:
+    url: https://hyperdimensional.co/feed/
+    category: AI & Development
+    priority: 3
+    notes: AI musings
+
+  steipete:
+    url: https://steipete.me/rss.xml
+    category: AI & Development
+    priority: 4
+    notes: Peter Steinberger (iOS, AI, Engineering)
+
+  bens_bites:
+    url: https://www.bensbites.com/feed/
+    category: AI & Development
+    priority: 4
+    notes: Daily AI news digest
+
   # Example Substacks (replace with your actual subscriptions)
   example_newsletter:
     url: https://example.substack.com/feed

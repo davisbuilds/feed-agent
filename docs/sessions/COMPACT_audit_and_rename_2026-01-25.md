@@ -2,15 +2,16 @@
 
 - **Date**: 2026-01-25
 - **Project**: Feed Agent (formerly Substack Digest Agent)
-- **Focus**: Codebase Audit, Performance Optimization, Rebranding
+- **Focus**: Codebase Audit, Performance Optimization, Rebranding, Deployment
 
 ## 1. Primary Request and Intent
 
-The user initiated a "scour the codebase" request to identify performance, elegance, and security opportunities. This evolved into a performance optimization task and later a rebranding request.
+The user initiated a "scour the codebase" request to identify performance, elegance, and security opportunities. This evolved into a performance optimization task, a rebranding request, and finally deployment to GitHub.
 
 - **Goal 1**: Audit codebase and fix critical issues (broken tests).
 - **Goal 2**: Improve ingestion and analysis performance.
 - **Goal 3**: Rename the project globally from "substack-agent" to "feed".
+- **Goal 4**: Push the code to a new public GitHub repository.
 
 ## 2. Key Technical Changes
 
@@ -32,6 +33,11 @@ The user initiated a "scour the codebase" request to identify performance, elega
   - `src/logging_config.py` (Logger name: `feed`)
   - `src/ingest/feeds.py` (User-Agent: `FeedAgent/1.0`)
   - `scripts/setup_launchd.py` (Service: `com.user.feed-agent`)
+
+### Deployment
+- **Repo**: Created `davisbuilds/feed-agent` on GitHub.
+- **Privacy**: Initially Private, then converted to Public.
+- **Auth**: Used `gh` CLI with HTTPS to handle authentication seamlessly.
 
 ## 3. Files and Code Sections
 
@@ -59,11 +65,15 @@ The user initiated a "scour the codebase" request to identify performance, elega
 - **Issue**: `uv sync` removed dev dependencies after package rename.
 - **Fix**: Ran `uv sync --extra dev` to restore `pytest`.
 
+### Virtual Environment Cache
+- **Issue**: Venv prompt showed `(substack-agent)` even after rename.
+- **Fix**: User manually recreated venv (`rm -rf .venv && uv sync`) to refresh the activation script.
+
 ## 5. Current Work State
 
-- **Status**: Stable & Optimized.
+- **Status**: Stable, Optimized, Public.
 - **Identity**: "Feed Agent".
-- **Performance**: Parallelized.
+- **Repo**: [davisbuilds/feed-agent](https://github.com/davisbuilds/feed-agent)
 - **Tests**: Green.
 
 ## 6. Suggested Next Step
