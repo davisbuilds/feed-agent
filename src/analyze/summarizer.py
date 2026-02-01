@@ -48,11 +48,13 @@ class Summarizer:
     """Handles article summarization with Google Gemini."""
     
     def __init__(self, api_key: str | None = None, model: str | None = None):
-        settings = get_settings()
-        api_key = api_key or settings.google_api_key
-        
+        if api_key is None or model is None:
+            settings = get_settings()
+            api_key = api_key or settings.google_api_key
+            model = model or settings.gemini_model
+
         self.client = genai.Client(api_key=api_key)
-        self.model_name = model or settings.gemini_model
+        self.model_name = model
     
     def summarize_article(self, article: Article) -> SummaryResult:
         """

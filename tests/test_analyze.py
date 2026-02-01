@@ -51,9 +51,9 @@ class TestSummarizer:
         mock_client.models.generate_content.return_value = mock_response
         mock_client_cls.return_value = mock_client
         
-        summarizer = Summarizer(api_key="test-key")
+        summarizer = Summarizer(api_key="test-key", model="test-model")
         result = summarizer.summarize_article(sample_article)
-        
+
         assert result["success"] is True
         assert result["summary"] == "Test summary"
         assert result["key_takeaways"] == ["insight1"]
@@ -66,9 +66,9 @@ class TestSummarizer:
         mock_client.models.generate_content.side_effect = Exception("API Error")
         mock_client_cls.return_value = mock_client
         
-        summarizer = Summarizer(api_key="test-key")
+        summarizer = Summarizer(api_key="test-key", model="test-model")
         result = summarizer.summarize_article(sample_article)
-        
+
         assert result["success"] is False
         assert "API Error" in result["error"]
 
@@ -97,7 +97,7 @@ class TestDigestBuilder:
         
         # We need to mock GenAI for the builder
         with patch("src.analyze.digest_builder.genai.Client"):
-            builder = DigestBuilder(api_key="test-key")
+            builder = DigestBuilder(api_key="test-key", model="test-model")
             
             # Since we can't easily inspect private method logic without calling build_digest,
             # we'll mock the internal aggregation methods or just check the result structure.
