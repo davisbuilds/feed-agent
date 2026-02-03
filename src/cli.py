@@ -42,6 +42,24 @@ console = Console()
 state = {"verbose": False}
 
 
+def _load_settings():
+    """Load settings with a user-friendly error on failure."""
+    try:
+        return get_settings()
+    except Exception as e:
+        console.print(
+            "[red]Configuration error.[/red] "
+            "Check your .env file or environment variables.\n"
+        )
+        for error in getattr(e, "errors", lambda: [])():
+            loc = ".".join(str(l) for l in error["loc"])
+            console.print(f"  [red]✗[/red] {loc}: {error['msg']}")
+        if not getattr(e, "errors", None):
+            console.print(f"  [red]✗[/red] {e}")
+        console.print("\n[dim]Run 'feed config' to verify your setup.[/dim]")
+        raise typer.Exit(code=1)
+
+
 def version_callback(value: bool):
     """Print version and exit."""
     if value:
@@ -80,7 +98,7 @@ def run(
     skip_send: bool = typer.Option(False, "--skip-send", help="Skip email delivery"),
 ) -> None:
     """Run the full digest pipeline: ingest → analyze → send."""
-    settings = get_settings()
+    settings = _load_settings()
     
     console.print(Panel.fit(
         "[bold]📬 Feed Agent[/bold]\n"
@@ -145,14 +163,15 @@ def run(
             console.print(f"  ✓ Email ID: {send_result.email_id}")
         else:
             console.print(f"  [red]✗ Send failed: {send_result.error}[/red]")
+            raise typer.Exit(code=1)
     else:
         console.print("\n[dim]No digest to send[/dim]")
-    
+
     # Summary
     total_time = ingest_result.duration_seconds
     if analysis_result:
         total_time += analysis_result.duration_seconds
-    
+
     console.print(Panel.fit(
         f"[bold green]✓ Complete[/bold green] in {total_time:.1f}s",
         border_style="green",
@@ -162,7 +181,7 @@ def run(
 @app.command()
 def ingest() -> None:
     """Fetch new articles from RSS feeds."""
-    settings = get_settings()
+    settings = _load_settings()
     
     console.print("[bold]Fetching feeds...[/bold]")
     
@@ -188,7 +207,7 @@ def ingest() -> None:
 @app.command()
 def analyze() -> None:
     """Summarize pending articles with Claude."""
-    settings = get_settings()
+    settings = _load_settings()
     
     db = Database(settings.data_dir / "articles.db")
     pending = db.get_pending_articles()
@@ -223,7 +242,7 @@ def send(
     test: bool = typer.Option(False, "--test", help="Send test email instead"),
 ) -> None:
     """Send the digest email."""
-    settings = get_settings()
+    settings = _load_settings()
     
     from src.deliver import EmailSender
     
@@ -257,6 +276,7 @@ def send(
         console.print(f"  Email ID: {result.email_id}")
     else:
         console.print(f"[red]✗ Send failed: {result.error}[/red]")
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -264,7 +284,7 @@ def status(
     json_format: bool = typer.Option(False, "--json", help="Output status as JSON"),
 ) -> None:
     """Show pipeline status and statistics."""
-    settings = get_settings()
+    settings = _load_settings()
     
     db_path = settings.data_dir / "articles.db"
     
@@ -344,69 +364,82 @@ def status(
 def config() -> None:
     """Verify configuration and show settings."""
     console.print("[bold]Verifying configuration...[/bold]\n")
-    
+
     errors = []
-    
+    settings = None
+
     # Check settings
     try:
         settings = get_settings()
         console.print("[green]✓[/green] Settings loaded")
-        
+
         # Check API keys (show partial)
         if settings.google_api_key:
             key_preview = settings.google_api_key[:10] + "..."
             console.print(f"  Google API key: {key_preview}")
         else:
             errors.append("Missing GOOGLE_API_KEY")
-        
+
         if settings.resend_api_key:
             key_preview = settings.resend_api_key[:10] + "..."
             console.print(f"  Resend API key: {key_preview}")
         else:
             errors.append("Missing RESEND_API_KEY")
-        
+
         console.print(f"  Email from: {settings.email_from}")
         console.print(f"  Email to: {settings.email_to}")
         console.print(f"  Gemini model: {settings.gemini_model}")
-        
+
     except Exception as e:
         errors.append(f"Settings error: {e}")
-    
-    # Check feeds config
+
+    # Check feeds config (only if settings loaded successfully)
     console.print()
-    try:
-        feed_config = FeedConfig(settings.config_dir / "feeds.yaml")
-        feeds = feed_config.feeds
-        
-        if feeds:
-            console.print(f"[green]✓[/green] Feeds configured: {len(feeds)}")
-            for name, config in list(feeds.items())[:5]:
-                console.print(f"  • {name}: {config.get('category', 'Uncategorized')}")
-            if len(feeds) > 5:
-                console.print(f"  ... and {len(feeds) - 5} more")
-        else:
-            errors.append("No feeds configured in config/feeds.yaml")
-    except Exception as e:
-        errors.append(f"Feeds config error: {e}")
-    
-    # Check directories
-    console.print()
-    console.print(f"[green]✓[/green] Config dir: {settings.config_dir}")
-    console.print(f"[green]✓[/green] Data dir: {settings.data_dir}")
-    
+    if settings is not None:
+        try:
+            feed_config = FeedConfig(settings.config_dir / "feeds.yaml")
+            feeds = feed_config.feeds
+
+            if feeds:
+                console.print(f"[green]✓[/green] Feeds configured: {len(feeds)}")
+                for name, cfg in list(feeds.items())[:5]:
+                    console.print(f"  • {name}: {cfg.get('category', 'Uncategorized')}")
+                if len(feeds) > 5:
+                    console.print(f"  ... and {len(feeds) - 5} more")
+            else:
+                errors.append("No feeds configured in config/feeds.yaml")
+        except Exception as e:
+            errors.append(f"Feeds config error: {e}")
+
+        # Check directories
+        console.print()
+        console.print(f"[green]✓[/green] Config dir: {settings.config_dir}")
+        console.print(f"[green]✓[/green] Data dir: {settings.data_dir}")
+    else:
+        console.print("[yellow]⚠ Skipping feeds and directory checks (settings not loaded)[/yellow]")
+
     # Summary
     console.print()
     if errors:
         console.print("[red]Configuration errors:[/red]")
         for error in errors:
             console.print(f"  [red]✗[/red] {error}")
+        raise typer.Exit(code=1)
     else:
         console.print("[green]✓ Configuration valid[/green]")
 
 
 def main() -> None:
     """Entry point."""
-    app()
+    try:
+        app()
+    except KeyboardInterrupt:
+        console.print("\n[dim]Aborted.[/dim]")
+        raise SystemExit(130)
+    except Exception as e:
+        console.print(f"\n[red]Unexpected error:[/red] {e}")
+        console.print("[dim]Run with --verbose for more details.[/dim]")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

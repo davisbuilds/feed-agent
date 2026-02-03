@@ -43,11 +43,13 @@ class DigestBuilder:
     """Builds a complete daily digest from summarized articles."""
     
     def __init__(self, api_key: str | None = None, model: str | None = None):
-        settings = get_settings()
-        api_key = api_key or settings.google_api_key
-        
+        if api_key is None or model is None:
+            settings = get_settings()
+            api_key = api_key or settings.google_api_key
+            model = model or settings.gemini_model
+
         self.client = genai.Client(api_key=api_key)
-        self.model_name = model or settings.gemini_model
+        self.model_name = model
         
     def build_digest(self, articles: list[Article]) -> DailyDigest:
         """
@@ -128,7 +130,8 @@ class DigestBuilder:
                     config=types.GenerateContentConfig(
                         system_instruction=DIGEST_SYNTHESIS_SYSTEM,
                         response_mime_type="application/json",
-                        response_schema=CategorySynthesisResponse
+                        response_schema=CategorySynthesisResponse,
+                        http_options=types.HttpOptions(timeout=120_000),
                     )
                 )
 
@@ -194,7 +197,8 @@ class DigestBuilder:
                 config=types.GenerateContentConfig(
                     system_instruction=OVERALL_SYNTHESIS_SYSTEM,
                     response_mime_type="application/json",
-                    response_schema=OverallSynthesisResponse
+                    response_schema=OverallSynthesisResponse,
+                    http_options=types.HttpOptions(timeout=120_000),
                 )
             )
 

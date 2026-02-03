@@ -10,7 +10,7 @@ Design decisions:
 import sqlite3
 import json
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 
@@ -109,15 +109,13 @@ class Database:
     def save_article(self, article: Article) -> bool:
         """
         Save an article to the database.
-        
+
         Returns True if new article, False if already existed.
+        Uses INSERT OR IGNORE for atomic deduplication.
         """
-        if self.article_exists(article.id):
-            return False
-        
         with self._connection() as conn:
-            conn.execute("""
-                INSERT INTO articles (
+            cursor = conn.execute("""
+                INSERT OR IGNORE INTO articles (
                     id, url, title, author, feed_name, feed_url,
                     published, content, word_count, category, status,
                     summary, key_takeaways, action_items
@@ -138,7 +136,7 @@ class Database:
                 json.dumps(article.key_takeaways or []),
                 json.dumps(article.action_items or []),
             ))
-        return True
+        return cursor.rowcount > 0
 
     def get_pending_articles(self, limit: int = 100) -> list[Article]:
         """Get articles that need summarization."""
@@ -242,7 +240,7 @@ class Database:
     ) -> None:
         """Track feed fetch status."""
         with self._connection() as conn:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             
             if success:
                 conn.execute("""

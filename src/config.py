@@ -22,12 +22,12 @@ class Settings(BaseSettings):
     )
 
     # API Keys
-    google_api_key: str = Field(..., description="Google Gemini API key")
-    resend_api_key: str = Field(..., description="Resend API key")
+    google_api_key: str = Field(..., min_length=1, description="Google Gemini API key")
+    resend_api_key: str = Field(..., min_length=1, description="Resend API key")
 
     # Email
-    email_from: str = Field(..., description="Sender email address")
-    email_to: str = Field(..., description="Recipient email address")
+    email_from: str = Field(..., min_length=1, description="Sender email address")
+    email_to: str = Field(..., min_length=1, description="Recipient email address")
 
     # Scheduling
     digest_hour: int = Field(default=7, ge=0, le=23, description="Hour to send digest (0-23)")

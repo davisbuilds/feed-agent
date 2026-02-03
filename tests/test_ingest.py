@@ -1,9 +1,11 @@
 """Tests for the ingestion module."""
 
+import concurrent.futures
 import pytest
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch, Mock
 
 from src.models import Article, ArticleStatus
 from src.storage.db import Database
@@ -115,3 +117,114 @@ class TestContentExtraction:
         html = "<html><body><h2>Title</h2><p>Content</p></body></html>"
         content = extract_text_content(html)
         assert "## Title" in content
+
+
+class TestAtomicSave:
+    """Tests for atomic article save (DATA-1 fix)."""
+
+    @pytest.fixture
+    def db(self):
+        """Create a temporary database."""
+        with TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            yield Database(db_path)
+
+    def _make_article(self, id: str, url: str) -> Article:
+        return Article(
+            id=id,
+            url=url,
+            title="Test",
+            feed_name="Feed",
+            feed_url="https://example.com/feed",
+            published=datetime.now(timezone.utc),
+        )
+
+    def test_concurrent_duplicate_saves(self, db):
+        """Concurrent saves of the same article should not raise."""
+        article = self._make_article("dup123", "https://example.com/dup")
+
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(db.save_article, article) for _ in range(4)]
+            for f in concurrent.futures.as_completed(futures):
+                results.append(f.result())
+
+        # Exactly one should return True (inserted), rest False (ignored)
+        assert results.count(True) == 1
+        assert results.count(False) == 3
+
+    def test_save_returns_false_for_duplicate_url(self, db):
+        """Two articles with same URL should be deduplicated by UNIQUE constraint."""
+        a1 = self._make_article("id_aaa", "https://example.com/same")
+        a2 = self._make_article("id_bbb", "https://example.com/same")
+
+        assert db.save_article(a1) is True
+        # Same URL, different ID -- still rejected by url UNIQUE constraint
+        # INSERT OR IGNORE handles this without raising
+        assert db.save_article(a2) is False
+
+
+class TestFeedTimeout:
+    """Tests for feed fetching timeout (CONC-1 fix)."""
+
+    @patch("src.ingest.feeds.httpx.get")
+    def test_fetch_feed_uses_httpx_with_timeout(self, mock_get):
+        """fetch_feed should use httpx.get with the timeout parameter."""
+        mock_response = Mock()
+        mock_response.content = b"<rss><channel><title>Test</title></channel></rss>"
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        fetch_feed(
+            feed_url="https://example.com/feed.xml",
+            feed_name="Test",
+            timeout=15,
+        )
+
+        mock_get.assert_called_once()
+        call_kwargs = mock_get.call_args
+        assert call_kwargs.kwargs["timeout"] == 15
+        assert call_kwargs.kwargs["follow_redirects"] is True
+
+    @patch("src.ingest.feeds.httpx.get")
+    def test_fetch_feed_handles_timeout_error(self, mock_get):
+        """A timeout from httpx should produce a failed FeedResult, not a crash."""
+        import httpx
+        mock_get.side_effect = httpx.TimeoutException("timed out")
+
+        result = fetch_feed(
+            feed_url="https://example.com/slow-feed.xml",
+            feed_name="Slow Feed",
+            timeout=5,
+        )
+
+        assert result.success is False
+        assert "timed out" in result.error
+
+
+class TestFeedStatusTimestamp:
+    """Tests for deprecated datetime.utcnow() replacement (DATA-2 fix)."""
+
+    @pytest.fixture
+    def db(self):
+        with TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            yield Database(db_path)
+
+    def test_feed_status_uses_utc_aware_timestamp(self, db):
+        """update_feed_status should store timezone-aware ISO timestamps."""
+        db.update_feed_status(
+            feed_url="https://example.com/feed",
+            feed_name="Test Feed",
+            success=True,
+        )
+
+        with db._connection() as conn:
+            row = conn.execute(
+                "SELECT last_checked FROM feed_status WHERE feed_url = ?",
+                ("https://example.com/feed",),
+            ).fetchone()
+
+        ts = row[0]
+        # datetime.now(timezone.utc).isoformat() includes +00:00
+        assert "+00:00" in ts

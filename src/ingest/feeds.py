@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import feedparser
+import httpx
 from dateutil.parser import parse as parse_date
 from dateutil.parser import ParserError
 
@@ -56,11 +57,15 @@ def fetch_feed(
     logger.info(f"Fetching feed: {feed_name}")
     
     try:
-        # feedparser handles timeouts via request_headers
-        feed = feedparser.parse(
+        # Fetch with httpx for proper timeout support, then parse with feedparser
+        response = httpx.get(
             feed_url,
-            request_headers={"User-Agent": "FeedAgent/1.0"},
+            timeout=timeout,
+            follow_redirects=True,
+            headers={"User-Agent": "FeedAgent/1.0"},
         )
+        response.raise_for_status()
+        feed = feedparser.parse(response.content)
         
         # Check for feed-level errors
         if feed.bozo and feed.bozo_exception:
