@@ -1,20 +1,15 @@
-"""
-Article summarization using Google Gemini (via google-genai SDK).
+"""Article summarization via provider-agnostic LLM client."""
 
-Uses structured output for reliable JSON extraction.
-"""
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import TypedDict
 
-import json
-from typing import TypedDict, Callable
-import typing
-
-from google import genai
-from google.genai import types
 from pydantic import BaseModel, Field
 
 from src.config import get_settings
+from src.llm import LLMClient, create_client
 from src.logging_config import get_logger
-from src.models import Article, ArticleStatus
+from src.models import Article
 
 from .prompts import ARTICLE_SUMMARY_SYSTEM, ARTICLE_SUMMARY_USER
 
@@ -22,8 +17,8 @@ logger = get_logger("summarizer")
 
 
 class ArticleSummaryResponse(BaseModel):
-    """Structured response from Gemini for article summaries."""
-    
+    """Structured response schema for article summaries."""
+
     summary: str = Field(..., description="2-3 sentence summary")
     key_takeaways: list[str] = Field(description="Up to 5 key insights")
     action_items: list[str] = Field(description="Up to 3 actionable items")
@@ -34,7 +29,7 @@ class ArticleSummaryResponse(BaseModel):
 
 class SummaryResult(TypedDict):
     """Result of summarizing an article."""
-    
+
     success: bool
     article_id: str
     summary: str | None
@@ -45,34 +40,27 @@ class SummaryResult(TypedDict):
 
 
 class Summarizer:
-    """Handles article summarization with Google Gemini."""
-    
-    def __init__(self, api_key: str | None = None, model: str | None = None):
-        if api_key is None or model is None:
-            settings = get_settings()
-            api_key = api_key or settings.google_api_key
-            model = model or settings.gemini_model
+    """Handles article summarization with an LLM provider client."""
 
-        self.client = genai.Client(api_key=api_key)
-        self.model_name = model
-    
+    def __init__(self, client: LLMClient | None = None):
+        if client is None:
+            settings = get_settings()
+            client = create_client(
+                provider=settings.llm_provider,
+                api_key=settings.llm_api_key,
+                model=settings.llm_model,
+            )
+
+        self.client = client
+
     def summarize_article(self, article: Article) -> SummaryResult:
-        """
-        Generate a summary for a single article.
-        
-        Args:
-            article: Article to summarize
-        
-        Returns:
-            SummaryResult with summary or error
-        """
+        """Generate a summary for a single article."""
         logger.info(f"Summarizing: {article.title[:50]}...")
-        
-        # Truncate content if too long
+
         content = article.content
         if len(content) > 30000:
             content = content[:30000] + "\n\n[Content truncated...]"
-        
+
         user_prompt = ARTICLE_SUMMARY_USER.format(
             title=article.title,
             author=article.author,
@@ -80,38 +68,17 @@ class Summarizer:
             published=article.published.strftime("%Y-%m-%d"),
             content=content,
         )
-        
-        try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=ARTICLE_SUMMARY_SYSTEM,
-                    response_mime_type="application/json",
-                    response_schema=ArticleSummaryResponse,
-                    http_options=types.HttpOptions(timeout=120_000),
-                )
-            )
-            
-            # Parse response - SDK automatically parses JSON for structured output
-            # Check if parsed attribute exists, otherwise try text parsing
-            if hasattr(response, "parsed") and response.parsed:
-                parsed_obj = response.parsed
-                # Convert pydantic object to dict if needed
-                if isinstance(parsed_obj, BaseModel):
-                    parsed = parsed_obj.model_dump()
-                else:
-                     parsed = parsed_obj
-            else:
-                 parsed = json.loads(response.text)
 
-            
-            # Estimate tokens
-            usage = response.usage_metadata
-            tokens_used = (usage.prompt_token_count or 0) + (usage.candidates_token_count or 0) if usage else 0
-            
+        try:
+            response = self.client.generate(
+                prompt=user_prompt,
+                system=ARTICLE_SUMMARY_SYSTEM,
+                response_schema=ArticleSummaryResponse,
+            )
+            parsed = response.parsed
+            tokens_used = response.input_tokens + response.output_tokens
+
             logger.debug(f"Summary generated ({tokens_used} tokens)")
-            
             return SummaryResult(
                 success=True,
                 article_id=article.id,
@@ -121,9 +88,9 @@ class Summarizer:
                 tokens_used=tokens_used,
                 error=None,
             )
-            
-        except Exception as e:
-            logger.error(f"Summarization error: {e}")
+
+        except Exception as exc:
+            logger.error(f"Summarization error: {exc}")
             return SummaryResult(
                 success=False,
                 article_id=article.id,
@@ -131,63 +98,61 @@ class Summarizer:
                 key_takeaways=[],
                 action_items=[],
                 tokens_used=0,
-                error=str(e),
+                error=str(exc),
             )
-    
+
     def summarize_batch(
-        self, 
+        self,
         articles: list[Article],
-        on_progress: "Callable | None" = None,
+        on_progress: Callable[[int, int, Article], None] | None = None,
     ) -> list[SummaryResult]:
-        """
-        Summarize multiple articles concurrently.
-        
-        Args:
-            articles: List of articles to summarize
-            on_progress: Optional callback(index, total, article) for progress
-        
-        Returns:
-            List of SummaryResults
-        """
-        import concurrent.futures
-        
-        results: list[SummaryResult] = [None] * len(articles)
-        total = len(articles)
-        completed = 0
-        
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            # Create a map of future -> index to maintain order and report progress
-            future_to_index = {
-                executor.submit(self.summarize_article, article): i 
-                for i, article in enumerate(articles)
+        """Summarize multiple articles concurrently."""
+        if not articles:
+            return []
+
+        results: list[SummaryResult] = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_article = {
+                executor.submit(self.summarize_article, article): article for article in articles
             }
-            
-            for future in concurrent.futures.as_completed(future_to_index):
-                i = future_to_index[future]
-                article = articles[i]
-                
-                # Report progress
+
+            for i, future in enumerate(as_completed(future_to_article)):
+                article = future_to_article[future]
                 if on_progress:
-                    on_progress(completed, total, article)
-                
+                    on_progress(i, len(articles), article)
+
                 try:
                     result = future.result()
-                    results[i] = result
-                except Exception as e:
-                    logger.error(f"Error checking future for article {article.id}: {e}")
-                    results[i] = SummaryResult(
+                    results.append(result)
+                except Exception as exc:
+                    logger.error(f"Failed to process {article.title}: {exc}")
+                    results.append(
+                        SummaryResult(
+                            success=False,
+                            article_id=article.id,
+                            summary=None,
+                            key_takeaways=[],
+                            action_items=[],
+                            tokens_used=0,
+                            error=str(exc),
+                        )
+                    )
+
+        result_map = {result["article_id"]: result for result in results}
+        ordered_results: list[SummaryResult] = []
+        for article in articles:
+            ordered_results.append(
+                result_map.get(
+                    article.id,
+                    SummaryResult(
                         success=False,
                         article_id=article.id,
                         summary=None,
                         key_takeaways=[],
                         action_items=[],
                         tokens_used=0,
-                        error=str(e),
-                    )
-                
-                completed += 1
-        
-        successful = sum(1 for r in results if r and r["success"])
-        logger.info(f"Summarized {successful}/{total} articles")
-        
-        return results
+                        error="Missing summary result",
+                    ),
+                )
+            )
+        return ordered_results

@@ -39,7 +39,7 @@ def create_sample_digest() -> DailyDigest:
         Article(
             id="2",
             url="https://simonwillison.net/2024/example",
-            title="Building with Claude: Lessons from the Trenches",
+            title="Building with LLMs: Lessons from the Trenches",
             author="Simon Willison",
             feed_name="Simon Willison's Blog",
             feed_url="https://simonwillison.net/atom/everything/",
@@ -47,7 +47,7 @@ def create_sample_digest() -> DailyDigest:
             content="Sample content...",
             word_count=1800,
             category="AI & Development",
-            summary="Practical insights from building production applications with Claude, including prompt engineering patterns, error handling strategies, and cost optimization techniques.",
+            summary="Practical insights from building production applications with modern LLMs, including prompt engineering patterns, error handling strategies, and cost optimization techniques.",
             key_takeaways=[
                 "Structured output dramatically improves reliability",
                 "Temperature 0 for deterministic tasks, 0.7 for creative",

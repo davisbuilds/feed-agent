@@ -1,15 +1,13 @@
-"""
-Configuration management using Pydantic Settings.
-
-Loads from environment variables and YAML config files.
-"""
+"""Configuration management using Pydantic Settings."""
 
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 import yaml
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from src.llm import PROVIDER_DEFAULTS
 
 
 class Settings(BaseSettings):
@@ -21,8 +19,24 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # LLM
+    llm_provider: Literal["gemini", "openai", "anthropic"] = Field(
+        default="gemini",
+        description="LLM provider to use",
+    )
+    llm_api_key: str = Field(
+        ...,
+        min_length=1,
+        validation_alias=AliasChoices("LLM_API_KEY", "GOOGLE_API_KEY"),
+        description="API key for configured LLM provider",
+    )
+    llm_model: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LLM_MODEL", "GEMINI_MODEL"),
+        description="Model name for configured LLM provider",
+    )
+
     # API Keys
-    google_api_key: str = Field(..., min_length=1, description="Google Gemini API key")
     resend_api_key: str = Field(..., min_length=1, description="Resend API key")
 
     # Email
@@ -36,9 +50,6 @@ class Settings(BaseSettings):
     # Processing
     max_articles_per_feed: int = Field(default=10, description="Max articles to fetch per feed")
     lookback_hours: int = Field(default=24, description="Hours to look back for new articles")
-    
-    # Gemini
-    gemini_model: str = Field(default="gemini-3-flash-preview", description="Gemini model to use")
     max_tokens_per_summary: int = Field(default=500, description="Max tokens per article summary")
 
     # Paths
@@ -47,6 +58,36 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = Field(default="INFO", description="Logging level")
+
+    @property
+    def google_api_key(self) -> str:
+        """Backward-compatible alias for legacy Google API key access."""
+        return self.llm_api_key
+
+    @property
+    def gemini_model(self) -> str:
+        """Backward-compatible alias for legacy Gemini model access."""
+        return self.llm_model or PROVIDER_DEFAULTS["gemini"]
+
+    @model_validator(mode="after")
+    def apply_llm_defaults(self) -> Self:
+        """Fill provider-specific model defaults when omitted."""
+        provider = self.llm_provider
+
+        # Migration safety: if a legacy GEMINI_MODEL is present but the selected
+        # provider is not Gemini, ignore it and apply the provider default.
+        # This prevents accidentally passing a Gemini model name to OpenAI or
+        # Anthropic during staged env-var migrations.
+        if (
+            provider != "gemini"
+            and self.llm_model
+            and self.llm_model == PROVIDER_DEFAULTS["gemini"]
+        ):
+            self.llm_model = None
+
+        if self.llm_model is None:
+            self.llm_model = PROVIDER_DEFAULTS[provider]
+        return self
 
     @model_validator(mode="after")
     def ensure_directories(self) -> Self:
@@ -69,10 +110,10 @@ class FeedConfig:
         if not self.config_path.exists():
             self._feeds = {}
             return
-        
-        with open(self.config_path) as f:
-            data = yaml.safe_load(f) or {}
-        
+
+        with open(self.config_path) as file_handle:
+            data = yaml.safe_load(file_handle) or {}
+
         self._feeds = data.get("feeds", {})
 
     @property
@@ -96,7 +137,6 @@ class FeedConfig:
         return "Uncategorized"
 
 
-# Global settings instance (lazy loaded)
 _settings: Settings | None = None
 
 

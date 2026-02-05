@@ -36,7 +36,7 @@ class Article(BaseModel):
     status: ArticleStatus = Field(default=ArticleStatus.PENDING, description="Processing status")
     
     # Populated after analysis
-    summary: str | None = Field(default=None, description="Claude-generated summary")
+    summary: str | None = Field(default=None, description="LLM-generated summary")
     key_takeaways: list[str] = Field(default_factory=list, description="Key insights")
     action_items: list[str] = Field(default_factory=list, description="Actionable items")
 

@@ -37,4 +37,4 @@ KEY TAKEAWAYS:
 {% endfor %}
 {{ '=' * 50 }}
 Generated in {{ "%.1f"|format(digest.processing_time_seconds) }}s
-Powered by Claude + Feed Agent
+Powered by Feed Agent

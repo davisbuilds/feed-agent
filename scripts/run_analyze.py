@@ -46,7 +46,7 @@ def main() -> None:
         print(f"  ... and {len(pending) - 5} more")
     
     print("\n" + "-" * 60)
-    print("Starting analysis (this uses Claude API)...")
+    print("Starting analysis (this uses the configured LLM API)...")
     print("-" * 60 + "\n")
     
     result = run_analysis(db=db)

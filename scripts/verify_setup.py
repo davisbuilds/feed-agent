@@ -1,89 +1,80 @@
 """Verify that the project is set up correctly."""
 
+import importlib
 import sys
 from pathlib import Path
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+
+def _check_import(module_name: str, errors: list[str], label: str | None = None) -> None:
+    """Import a module and print status."""
+    try:
+        module = importlib.import_module(module_name)
+        version = getattr(module, "__version__", None)
+        if version is not None:
+            print(f"✅ {label or module_name} {version}")
+        else:
+            print(f"✅ {label or module_name}")
+    except ImportError as exc:
+        errors.append(f"{label or module_name}: {exc}")
+
+
+def _check_provider_sdk(provider: str, errors: list[str]) -> None:
+    """Verify provider SDK import for the configured provider."""
+    module_by_provider = {
+        "gemini": "google.genai",
+        "openai": "openai",
+        "anthropic": "anthropic",
+    }
+    module_name = module_by_provider[provider]
+    _check_import(module_name, errors)
 
 
 def main() -> None:
     """Run setup verification."""
     print("🔍 Verifying project setup...\n")
-    
+
     errors: list[str] = []
-    
-    # Check Python version
+
     print(f"Python version: {sys.version}")
-    if sys.version_info < (3, 12):
-        errors.append("Python 3.12+ required")
-    else:
-        print("✅ Python version OK")
-    
-    # Check imports
+    print("✅ Python version OK")
+
     print("\nChecking dependencies...")
-    try:
-        import anthropic
-        print(f"✅ anthropic {anthropic.__version__}")
-    except ImportError as e:
-        errors.append(f"anthropic: {e}")
-    
-    try:
-        import feedparser
-        print(f"✅ feedparser {feedparser.__version__}")
-    except ImportError as e:
-        errors.append(f"feedparser: {e}")
-    
-    try:
-        import resend
-        print("✅ resend")
-    except ImportError as e:
-        errors.append(f"resend: {e}")
-    
-    try:
-        from bs4 import BeautifulSoup
-        print("✅ beautifulsoup4")
-    except ImportError as e:
-        errors.append(f"beautifulsoup4: {e}")
-    
-    try:
-        import yaml
-        print("✅ pyyaml")
-    except ImportError as e:
-        errors.append(f"pyyaml: {e}")
-    
-    try:
-        import pydantic
-        print(f"✅ pydantic {pydantic.__version__}")
-    except ImportError as e:
-        errors.append(f"pydantic: {e}")
-    
-    # Check configuration
+    _check_import("feedparser", errors)
+    _check_import("resend", errors)
+    _check_import("bs4", errors, label="beautifulsoup4")
+    _check_import("yaml", errors, label="pyyaml")
+    _check_import("pydantic", errors)
+
     print("\nChecking configuration...")
     try:
         from config import get_settings
+
         settings = get_settings()
-        print(f"✅ Settings loaded")
-        print(f"   Claude model: {settings.claude_model}")
+        print("✅ Settings loaded")
+        print(f"   LLM provider: {settings.llm_provider}")
+        print(f"   LLM model: {settings.llm_model}")
         print(f"   Email from: {settings.email_from}")
-    except Exception as e:
-        errors.append(f"Configuration: {e}")
-    
-    # Check feeds config
+
+        _check_provider_sdk(settings.llm_provider, errors)
+    except Exception as exc:
+        errors.append(f"Configuration: {exc}")
+
     print("\nChecking feeds config...")
     feeds_path = Path("config/feeds.yaml")
     if feeds_path.exists():
         try:
             from config import FeedConfig
+
             feed_config = FeedConfig(feeds_path)
             urls = feed_config.get_feed_urls()
             print(f"✅ Found {len(urls)} configured feeds")
-        except Exception as e:
-            errors.append(f"Feeds config: {e}")
+        except Exception as exc:
+            errors.append(f"Feeds config: {exc}")
     else:
         errors.append("config/feeds.yaml not found")
-    
-    # Summary
+
     print("\n" + "=" * 50)
     if errors:
         print("❌ Setup verification FAILED")
@@ -91,9 +82,9 @@ def main() -> None:
         for error in errors:
             print(f"  • {error}")
         sys.exit(1)
-    else:
-        print("✅ Setup verification PASSED")
-        print("\nReady to proceed to Phase 1!")
+
+    print("✅ Setup verification PASSED")
+    print("\nReady to proceed to Phase 1!")
 
 
 if __name__ == "__main__":

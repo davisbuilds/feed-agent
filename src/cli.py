@@ -206,7 +206,7 @@ def ingest() -> None:
 
 @app.command()
 def analyze() -> None:
-    """Summarize pending articles with Claude."""
+    """Summarize pending articles with the configured LLM."""
     settings = _load_settings()
     
     db = Database(settings.data_dir / "articles.db")
@@ -374,11 +374,11 @@ def config() -> None:
         console.print("[green]✓[/green] Settings loaded")
 
         # Check API keys (show partial)
-        if settings.google_api_key:
-            key_preview = settings.google_api_key[:10] + "..."
-            console.print(f"  Google API key: {key_preview}")
+        if settings.llm_api_key:
+            key_preview = settings.llm_api_key[:10] + "..."
+            console.print(f"  LLM API key: {key_preview}")
         else:
-            errors.append("Missing GOOGLE_API_KEY")
+            errors.append("Missing LLM_API_KEY")
 
         if settings.resend_api_key:
             key_preview = settings.resend_api_key[:10] + "..."
@@ -388,7 +388,8 @@ def config() -> None:
 
         console.print(f"  Email from: {settings.email_from}")
         console.print(f"  Email to: {settings.email_to}")
-        console.print(f"  Gemini model: {settings.gemini_model}")
+        console.print(f"  LLM provider: {settings.llm_provider}")
+        console.print(f"  LLM model: {settings.llm_model}")
 
     except Exception as e:
         errors.append(f"Settings error: {e}")
