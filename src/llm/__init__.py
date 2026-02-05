@@ -15,6 +15,9 @@ PROVIDER_DEFAULTS: dict[Provider, str] = {
 
 def create_client(provider: Provider, api_key: str, model: str | None = None) -> LLMClient:
     """Create an LLM client for the given provider."""
+    if provider not in PROVIDER_DEFAULTS:
+        raise LLMError(f"Unknown LLM provider: {provider}")
+
     resolved_model = model or PROVIDER_DEFAULTS[provider]
 
     try:
@@ -31,8 +34,6 @@ def create_client(provider: Provider, api_key: str, model: str | None = None) ->
                 from .anthropic import AnthropicClient
 
                 return AnthropicClient(api_key=api_key, model=resolved_model)
-            case _:
-                raise LLMError(f"Unknown LLM provider: {provider}")
     except ImportError as exc:
         raise LLMError(
             f"Missing dependency for provider '{provider}'. "
