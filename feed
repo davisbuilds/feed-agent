@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Shortcut to run the feed CLI without typing "uv run".
+# Usage: ./feed run | ./feed status | ./feed config | etc.
+exec uv run feed "$@"

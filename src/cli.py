@@ -2,12 +2,12 @@
 Feed Agent CLI.
 
 Usage:
-    feed run            # Full pipeline: ingest, analyze, send
-    feed ingest         # Only fetch new articles
-    feed analyze        # Only summarize pending articles
-    feed send           # Only send digest for summarized articles
-    feed status         # Show pipeline status
-    feed config         # Verify configuration
+    ./feed run            # Full pipeline: ingest, analyze, send
+    ./feed ingest         # Only fetch new articles
+    ./feed analyze        # Only summarize pending articles
+    ./feed send           # Only send digest for summarized articles
+    ./feed status         # Show pipeline status
+    ./feed config         # Verify configuration
 """
 
 import json
