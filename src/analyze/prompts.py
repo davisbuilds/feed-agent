@@ -1,5 +1,5 @@
 """
-Prompt templates for Claude interactions.
+Prompt templates for LLM interactions.
 
 Design philosophy:
 - Clear, specific instructions
@@ -8,7 +8,10 @@ Design philosophy:
 - Character/tone guidance
 """
 
-ARTICLE_SUMMARY_SYSTEM = """You are a skilled editor who creates concise, insightful summaries of newsletter articles. Your summaries help busy professionals quickly understand the key points and decide what deserves deeper reading.
+ARTICLE_SUMMARY_SYSTEM = """You are a skilled editor who creates concise,
+insightful summaries of newsletter articles. Your summaries help busy
+professionals quickly understand the key points and decide what deserves
+deeper reading.
 
 Your summaries should:
 - Capture the core thesis or argument
@@ -41,9 +44,13 @@ Respond with JSON in this exact format:
     "importance": 1-5
 }}
 
-Focus on what's genuinely useful. If there are no clear action items, return an empty array."""
+Focus on what's genuinely useful. If there are no clear action items,
+return an empty array."""
 
-DIGEST_SYNTHESIS_SYSTEM = """You are creating a daily newsletter digest for a busy professional. Your job is to synthesize multiple article summaries into a coherent overview that surfaces the most important themes and insights.
+DIGEST_SYNTHESIS_SYSTEM = """You are creating a daily newsletter digest for
+a busy professional. Your job is to synthesize multiple article summaries
+into a coherent overview that surfaces the most important themes and
+insights.
 
 Your synthesis should:
 - Identify connections across articles
@@ -52,22 +59,31 @@ Your synthesis should:
 - Prioritize actionable insights
 - Be scannable and well-organized
 
-Write in a warm but efficient tone—like a trusted colleague briefing you over coffee."""
+Write in a warm but efficient tone—like a trusted colleague briefing you
+over coffee."""
 
-CATEGORY_SYNTHESIS_USER = """Here are the summaries from today's {category} articles:
+CATEGORY_SYNTHESIS_USER = """Here are the summaries from today's {category}
+articles:
 
 {article_summaries}
 
 Create a synthesis for this category. Respond with JSON:
 {{
-    "synthesis": "2-4 sentences summarizing the key themes and most important points across these articles",
-    "top_takeaways": ["most important insight 1", "most important insight 2", "most important insight 3"],
+    "synthesis": "2-4 sentences summarizing key themes and important points across these articles",
+    "top_takeaways": [
+        "most important insight 1",
+        "most important insight 2",
+        "most important insight 3"
+    ],
     "must_read": ["url1", "url2"]
 }}
 
 Only include must_read URLs for articles that are exceptionally valuable."""
 
-OVERALL_SYNTHESIS_SYSTEM = """You are creating the executive summary for a daily newsletter digest. You need to identify the most important themes across all categories and give the reader a quick understanding of what matters today."""
+OVERALL_SYNTHESIS_SYSTEM = """You are creating the executive summary for a
+daily newsletter digest. You need to identify the most important themes
+across all categories and give the reader a quick understanding of what
+matters today."""
 
 OVERALL_SYNTHESIS_USER = """Here are today's category summaries:
 
