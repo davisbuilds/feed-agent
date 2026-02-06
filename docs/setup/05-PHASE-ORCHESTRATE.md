@@ -40,7 +40,7 @@ The orchestration layer provides the user interface and automation:
 
 ### Design Principles
 
-1. **Single Command**: `digest run` does everything
+1. **Single Command**: `./feed run` does everything
 2. **Modular**: Each phase runnable independently
 3. **Observable**: Clear progress and status reporting
 4. **Recoverable**: Can resume from failures
@@ -55,7 +55,7 @@ Create `scripts/run_digest.py`:
 
 ```python
 """
-Substack Digest Agent CLI.
+Feed Agent CLI.
 
 Usage:
     digest run          # Full pipeline: ingest, analyze, send
@@ -86,7 +86,7 @@ from src.storage.db import Database
 
 app = typer.Typer(
     name="digest",
-    help="Substack Digest Agent - Your personal newsletter intelligence",
+    help="Feed Agent - Your personal newsletter intelligence",
     no_args_is_help=True,
 )
 console = Console()
@@ -102,7 +102,7 @@ def run(
     settings = get_settings()
     
     console.print(Panel.fit(
-        "[bold]📬 Substack Digest Agent[/bold]\n"
+        "[bold]📬 Feed Agent[/bold]\n"
         f"Running full pipeline at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         border_style="blue",
     ))
@@ -422,7 +422,7 @@ if __name__ == "__main__":
 ```
 
 - [ ] Create `scripts/run_digest.py`
-- [ ] Test CLI commands: `uv run python scripts/run_digest.py --help`
+- [ ] Test CLI commands: `./feed --help`
 - [ ] Test each subcommand: `config`, `status`, `ingest`, etc.
 
 ### 4.2 Make CLI Installable
@@ -544,7 +544,7 @@ PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.user.substack-digest</string>
+    <string>com.user.feed</string>
     
     <key>ProgramArguments</key>
     <array>
@@ -606,7 +606,7 @@ def main() -> None:
     )
     
     # Paths
-    plist_name = "com.user.substack-digest.plist"
+    plist_name = "com.user.feed.plist"
     launch_agents_dir = Path.home() / "Library" / "LaunchAgents"
     plist_path = launch_agents_dir / plist_name
     
@@ -632,7 +632,7 @@ def main() -> None:
     print(f"   launchctl load {plist_path}")
     
     print(f"\n2. To run immediately (for testing):")
-    print(f"   launchctl start com.user.substack-digest")
+    print(f"   launchctl start com.user.feed")
     
     print(f"\n3. To check status:")
     print(f"   launchctl list | grep substack")
@@ -732,22 +732,22 @@ if __name__ == "__main__":
 
 | Command | Description |
 |---------|-------------|
-| `digest run` | Full pipeline (ingest + analyze + send) |
-| `digest run --skip-send` | Run without sending email |
-| `digest ingest` | Only fetch new articles |
-| `digest analyze` | Only summarize pending articles |
-| `digest send` | Send digest from summarized articles |
-| `digest send --test` | Send test email |
-| `digest status` | Show article counts and recent items |
-| `digest config` | Verify configuration |
+| `./feed run` | Full pipeline (ingest + analyze + send) |
+| `./feed run --skip-send` | Run without sending email |
+| `./feed ingest` | Only fetch new articles |
+| `./feed analyze` | Only summarize pending articles |
+| `./feed send` | Send digest from summarized articles |
+| `./feed send --test` | Send test email |
+| `./feed status` | Show article counts and recent items |
+| `./feed config` | Verify configuration |
 
 ---
 
 ## Completion Checklist
 
 - [ ] All CLI commands work correctly
-- [ ] `digest run` completes full pipeline
-- [ ] `digest status` shows accurate counts
+- [ ] `./feed run` completes full pipeline
+- [ ] `./feed status` shows accurate counts
 - [ ] Scheduling is configured (cron or launchd)
 - [ ] Healthcheck script works
 - [ ] Logs are being written

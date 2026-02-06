@@ -1,13 +1,13 @@
 # Quick Reference & Cheatsheet
 
-A condensed reference for the Substack Digest Agent.
+A condensed reference for the Feed Agent.
 
 ---
 
 ## Project Structure
 
 ```
-substack-agent/
+feed/
 ├── src/
 │   ├── config.py           # Settings & feed config
 │   ├── models.py           # Pydantic data models
@@ -35,26 +35,26 @@ substack-agent/
 
 ```bash
 # Full pipeline
-digest run                  # Ingest → Analyze → Send
-digest run --skip-send      # Run without sending email
-digest run -v               # Verbose output
+./feed run                  # Ingest → Analyze → Send
+./feed run --skip-send      # Run without sending email
+./feed run -v               # Verbose output
 
 # Individual phases
-digest ingest               # Only fetch new articles
-digest analyze              # Only summarize pending articles
-digest send                 # Send from summarized articles
-digest send --test          # Send test email
+./feed ingest               # Only fetch new articles
+./feed analyze              # Only summarize pending articles
+./feed send                 # Send from summarized articles
+./feed send --test          # Send test email
 
 # Status & info
-digest status               # Article counts & recent items
-digest stats                # Detailed database statistics
-digest config               # Verify configuration
-digest validate             # Test API connections
+./feed status               # Article counts & recent items
+./feed stats                # Detailed database statistics
+./feed config               # Verify configuration
+./feed validate             # Test API connections
 
 # Maintenance
-digest cleanup --days 30    # Preview old article cleanup
-digest cleanup --execute    # Actually delete old articles
-digest backup               # Create database backup
+./feed cleanup --days 30    # Preview old article cleanup
+./feed cleanup --execute    # Actually delete old articles
+./feed backup               # Create database backup
 ```
 
 ---
@@ -157,12 +157,12 @@ DailyDigest(
 
 ```bash
 # Generate and install
-python scripts/setup_launchd.py
+uv run python scripts/setup_launchd.py
 
 # Control
-launchctl load ~/Library/LaunchAgents/com.user.substack-digest.plist
-launchctl start com.user.substack-digest
-launchctl list | grep substack
+launchctl load ~/Library/LaunchAgents/com.user.feed.plist
+launchctl start com.user.feed
+launchctl list | grep feed
 ```
 
 ### Linux/cron
@@ -172,7 +172,7 @@ launchctl list | grep substack
 crontab -e
 
 # Add line (7 AM daily)
-0 7 * * * cd /path/to/substack-agent && /path/to/python scripts/run_digest.py run >> logs/digest.log 2>&1
+0 7 * * * cd /path/to/feed && /path/to/python scripts/run_digest.py run >> logs/digest.log 2>&1
 ```
 
 ---
@@ -191,16 +191,16 @@ crontab -e
 
 ```bash
 # Verbose output
-digest run -v
+./feed run -v
 
 # Check logs
 tail -f logs/digest_$(date +%Y%m%d).log
 
 # Test API connections
-digest validate
+./feed validate
 
 # Check database
-digest stats
+./feed stats
 ```
 
 ---
@@ -236,21 +236,21 @@ Total time: 15-20 hours
 
 ```bash
 # 1. Verify setup
-digest config
-digest validate
+./feed config
+./feed validate
 
 # 2. Test ingestion
-digest ingest -v
+./feed ingest -v
 
 # 3. Test analysis (uses API)
-digest analyze -v
+./feed analyze -v
 
 # 4. Test email
-digest send --test
+./feed send --test
 
 # 5. Full run (dry)
-digest run --skip-send
+./feed run --skip-send
 
 # 6. Full run
-digest run
+./feed run
 ```

@@ -5,7 +5,7 @@ This document is a guide for AI agents working on the Feed Agent project.
 ## Project Structure
 
 ```
-feed-agent/
+feed/
 ├── config/              # Configuration files (feeds.yaml)
 ├── src/                 # Application source code
 │   ├── analyze/         # Digest generation (Summarizer, DigestBuilder, Prompts)

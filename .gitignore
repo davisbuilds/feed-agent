@@ -22,6 +22,7 @@ data/
 # IDE
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
@@ -36,6 +37,9 @@ htmlcov/
 
 # Type checking
 .mypy_cache/
+
+# Linting
+.ruff_cache/
 
 # Logs
 *.log

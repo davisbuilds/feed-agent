@@ -1,6 +1,6 @@
-# Substack Digest Agent
+# Feed Agent
 
-A personal newsletter intelligence agent that reads your Substack subscriptions, analyzes content with Claude, and delivers a beautifully crafted daily digest to your inbox.
+A personal newsletter intelligence agent that reads your RSS subscriptions, analyzes content with AI, and delivers a beautifully crafted daily digest to your inbox.
 
 ## Vision
 
@@ -10,7 +10,7 @@ Transform newsletter overload into actionable insight. Instead of 50+ unread new
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Substack Digest Agent                         │
+│                            Feed Agent                                │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │
@@ -47,7 +47,7 @@ Transform newsletter overload into actionable insight. Instead of 50+ unread new
 ## Project Structure
 
 ```
-substack-agent/
+feed/
 ├── src/
 │   ├── __init__.py
 │   ├── config.py          # Configuration loading & validation

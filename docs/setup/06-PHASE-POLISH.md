@@ -198,7 +198,7 @@ def send_error_notification(
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #dc2626;">⚠️ Digest Agent Error</h1>
             <p style="color: #3f3f46;">
-                The Substack Digest Agent encountered an error:
+                The Feed Agent encountered an error:
             </p>
             <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0;">
                 <code style="color: #991b1b; white-space: pre-wrap;">{error}</code>
@@ -930,7 +930,7 @@ def validate(
 ```
 
 - [ ] Add validation command to CLI
-- [ ] Test: `digest validate`
+- [ ] Test: `./feed validate`
 
 ---
 
@@ -938,9 +938,9 @@ def validate(
 
 ### Before Going Live
 
-- [ ] All validation checks pass (`digest validate`)
-- [ ] Test email delivery works (`digest send --test`)
-- [ ] Full pipeline runs successfully (`digest run`)
+- [ ] All validation checks pass (`./feed validate`)
+- [ ] Test email delivery works (`./feed send --test`)
+- [ ] Full pipeline runs successfully (`./feed run`)
 - [ ] Scheduling is configured and tested
 - [ ] Error notifications are working
 - [ ] Logs are being written to files
@@ -959,7 +959,7 @@ Set up periodic checks:
 
 - **Daily**: Pipeline runs automatically
 - **Weekly**: Review logs for warnings
-- **Monthly**: Run `digest cleanup --execute` and `digest backup`
+- **Monthly**: Run `./feed cleanup --execute` and `./feed backup`
 - **Quarterly**: Review and update feed list
 
 ---
@@ -969,7 +969,7 @@ Set up periodic checks:
 ### Common Issues
 
 **Pipeline runs but no email received**
-1. Check `digest validate` for Resend issues
+1. Check `./feed validate` for Resend issues
 2. Verify email is not in spam folder
 3. Check Resend dashboard for delivery status
 
@@ -981,7 +981,7 @@ Set up periodic checks:
 **Feed fetch failures**
 1. Check if feed URL is still valid
 2. Some sites block automated requests - try different User-Agent
-3. Run `digest ingest -v` for detailed errors
+3. Run `./feed ingest -v` for detailed errors
 
 **High API costs**
 1. Reduce `max_articles_per_feed` in settings
@@ -1002,7 +1002,7 @@ Set up periodic checks:
 
 ## Next Steps
 
-Congratulations! You now have a production-ready Substack digest agent. Consider these enhancements:
+Congratulations! You now have a production-ready Feed agent. Consider these enhancements:
 
 1. **Web Dashboard**: Add a simple Flask/FastAPI dashboard
 2. **Feed Discovery**: Auto-suggest feeds based on reading history

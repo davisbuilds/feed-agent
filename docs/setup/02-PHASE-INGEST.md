@@ -379,7 +379,7 @@ def fetch_feed(
         # feedparser handles timeouts via request_headers
         feed = feedparser.parse(
             feed_url,
-            request_headers={"User-Agent": "SubstackDigestAgent/1.0"},
+            request_headers={"User-Agent": "FeedAgent/1.0"},
         )
         
         # Check for feed-level errors
