@@ -9,7 +9,7 @@ PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.user.feed-agent</string>
+    <string>com.user.feed</string>
     
     <key>ProgramArguments</key>
     <array>
@@ -71,7 +71,7 @@ def main() -> None:
     )
     
     # Paths
-    plist_name = "com.user.feed-agent.plist"
+    plist_name = "com.user.feed.plist"
     launch_agents_dir = Path.home() / "Library" / "LaunchAgents"
     plist_path = launch_agents_dir / plist_name
     
@@ -97,7 +97,7 @@ def main() -> None:
     print(f"   launchctl load {plist_path}")
     
     print(f"\n2. To run immediately (for testing):")
-    print(f"   launchctl start com.user.feed-agent")
+    print(f"   launchctl start com.user.feed")
     
     print(f"\n3. To check status:")
     print(f"   launchctl list | grep substack")

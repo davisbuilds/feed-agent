@@ -32,10 +32,10 @@ The user initiated a "scour the codebase" request to identify performance, elega
   - Email templates (HTML & Text footers)
   - `src/logging_config.py` (Logger name: `feed`)
   - `src/ingest/feeds.py` (User-Agent: `FeedAgent/1.0`)
-  - `scripts/setup_launchd.py` (Service: `com.user.feed-agent`)
+  - `scripts/setup_launchd.py` (Service: `com.user.feed`)
 
 ### Deployment
-- **Repo**: Created `davisbuilds/feed-agent` on GitHub.
+- **Repo**: Created `davisbuilds/feed` on GitHub.
 - **Privacy**: Initially Private, then converted to Public.
 - **Auth**: Used `gh` CLI with HTTPS to handle authentication seamlessly.
 
@@ -73,7 +73,7 @@ The user initiated a "scour the codebase" request to identify performance, elega
 
 - **Status**: Stable, Optimized, Public.
 - **Identity**: "Feed Agent".
-- **Repo**: [davisbuilds/feed-agent](https://github.com/davisbuilds/feed-agent)
+- **Repo**: [davisbuilds/feed](https://github.com/davisbuilds/feed)
 - **Tests**: Green.
 
 ## 6. Suggested Next Step

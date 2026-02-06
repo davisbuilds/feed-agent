@@ -35,8 +35,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/yourusername/substack-digest.git
-cd substack-digest
+git clone https://github.com/davisbuilds/feed.git
+cd feed
 uv sync
 ```
 
@@ -73,25 +73,25 @@ feeds:
 
 ## Usage
 
-The application uses a CLI named `feed`. You can run it via `uv run`.
+The application uses a CLI named `feed`. Run it via the `./feed` wrapper script.
 
 ### Main Pipeline
 
 Run the full daily workflow (Ingest → Analyze → Send):
 
 ```bash
-uv run feed run
+./feed run
 ```
 
 ### Individual Commands
 
 | Command | Description |
 |---------|-------------|
-| `uv run feed status` | Show pipeline statistics and recent articles |
-| `uv run feed ingest` | Fetch new articles from feeds |
-| `uv run feed analyze` | Summarize pending articles with AI |
-| `uv run feed send` | generating and sending the email digest |
-| `uv run feed config` | Verify configuration settings |
+| `./feed status` | Show pipeline statistics and recent articles |
+| `./feed ingest` | Fetch new articles from feeds |
+| `./feed analyze` | Summarize pending articles with AI |
+| `./feed send` | Generate and send the email digest |
+| `./feed config` | Verify configuration settings |
 
 ### Options
 
@@ -106,6 +106,8 @@ Run the test suite:
 ```bash
 uv run pytest
 ```
+
+Alternatively, you can use `uv run feed <command>` instead of the wrapper script.
 
 The project includes a few helper scripts in `scripts/`:
 - `run_ingest.py`: Test the ingestion pipeline manually.

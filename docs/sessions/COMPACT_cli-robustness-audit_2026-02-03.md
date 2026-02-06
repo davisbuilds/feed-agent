@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-03
 **Branch:** `claude/analyze-cli-robustness-G1Y0h`
-**Repo:** `/home/user/feed-agent`
+**Repo:** `/home/user/feed`
 
 ---
 

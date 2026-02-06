@@ -327,7 +327,7 @@ Create `src/deliver/templates/digest.html`:
             <p>
                 Generated in {{ "%.1f"|format(digest.processing_time_seconds) }}s
                 <br>
-                <span style="color: #a1a1aa;">Powered by Claude + Substack Digest Agent</span>
+                <span style="color: #a1a1aa;">Powered by Claude + Feed Agent</span>
             </p>
         </td>
     </tr>
@@ -381,7 +381,7 @@ KEY TAKEAWAYS:
 {% endfor %}
 {{ '=' * 50 }}
 Generated in {{ "%.1f"|format(digest.processing_time_seconds) }}s
-Powered by Claude + Substack Digest Agent
+Powered by Claude + Feed Agent
 ```
 
 - [ ] Create `digest.txt` template
@@ -605,19 +605,19 @@ class EmailSender:
             response = resend.Emails.send({
                 "from": self.from_address,
                 "to": [recipient],
-                "subject": "🧪 Substack Digest Agent - Test Email",
+                "subject": "🧪 Feed Agent - Test Email",
                 "html": """
                     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h1 style="color: #18181b;">Test Email</h1>
                         <p style="color: #3f3f46;">
-                            If you're reading this, your Substack Digest Agent email configuration is working correctly!
+                            If you're reading this, your Feed Agent email configuration is working correctly!
                         </p>
                         <p style="color: #71717a; font-size: 14px;">
                             Sent at: {time}
                         </p>
                     </div>
                 """.format(time=datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                "text": "Test email from Substack Digest Agent. If you're reading this, your configuration is working!",
+                "text": "Test email from Feed Agent. If you're reading this, your configuration is working!",
             })
             
             email_id = response.get("id") if isinstance(response, dict) else str(response)

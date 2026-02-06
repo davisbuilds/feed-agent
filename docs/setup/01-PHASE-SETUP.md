@@ -24,10 +24,10 @@ Before starting, ensure you have:
 
 ```bash
 # Create project directory
-mkdir substack-agent && cd substack-agent
+mkdir feed && cd feed
 
 # Initialize with uv (creates pyproject.toml)
-uv init --name substack-agent --python 3.12
+uv init --name feed --python 3.12
 
 # Create directory structure
 mkdir -p src/{ingest,analyze,deliver,storage}
@@ -45,7 +45,7 @@ Update `pyproject.toml`:
 
 ```toml
 [project]
-name = "substack-agent"
+name = "feed"
 version = "0.1.0"
 description = "Personal newsletter intelligence agent"
 readme = "README.md"
@@ -337,7 +337,7 @@ class DigestStats(BaseModel):
 Create `config/feeds.yaml`:
 
 ```yaml
-# Substack Digest Agent - Feed Configuration
+# Feed Agent - Feed Configuration
 #
 # Format:
 #   feed_name:
