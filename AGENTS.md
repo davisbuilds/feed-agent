@@ -1,6 +1,6 @@
 # AI Agent Guide
 
-This document is a guide for AI agents working on the Feed Agent project.
+This document is a guide for AI agents working on the Feed project.
 
 ## Project Structure
 
@@ -35,23 +35,54 @@ The project uses `uv` for dependency management.
 - **Lint**: `uv run ruff check .`
 - **Install**: `uv sync` (or `uv sync --extra dev` for dev tools)
 
+## Configuration & XDG Convention
+
+Settings are loaded via Pydantic Settings from two env-file locations (higher priority wins):
+
+1. `~/.config/feed/config.env` — user-level XDG config (created by `feed init`)
+2. `.env` in the working directory — project-level override
+
+The XDG path is defined in `src.config.XDG_CONFIG_PATH` (`~/.config/feed/`). The `feed init` wizard writes `config.env` and copies `feeds.yaml` into this directory, so users can run `feed` from any location.
+
+Key config variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LLM_PROVIDER` | `gemini`, `openai`, or `anthropic` | `gemini` |
+| `LLM_API_KEY` | API key for the chosen provider | (required) |
+| `LLM_MODEL` | Model override | per-provider default |
+| `RESEND_API_KEY` | Resend email API key | (required) |
+| `EMAIL_FROM` | Sender email address | (required) |
+| `EMAIL_TO` | Recipient email address | (required) |
+| `CONFIG_DIR` | Path to feeds.yaml directory | `config/` |
+| `DATA_DIR` | Path to SQLite data directory | `data/` |
+
 ## Development Patterns
 
-- **Configuration**: `src.config.get_settings()` — Pydantic-based, reads `.env`.
+- **Configuration**: `src.config.get_settings()` — Pydantic-based, reads XDG and `.env`.
 - **Logging**: `src.logging_config.get_logger(__name__)`.
 - **Database**: `src.storage.db.Database` — SQLite with WAL mode.
 - **Models**: Pydantic models in `src.models`.
 - **LLM access**: `src.llm.create_client(provider, api_key, model)` — factory with lazy imports. Supports `gemini` (default), `openai`, and `anthropic`.
 
-## Current Status (2026-02-05)
+## CLI Overview
 
-The project is fully functional with multi-provider LLM support.
+`./feed run` outputs the digest to the terminal by default (rich format). Use `--send` to deliver via email, or `--format` to choose between `rich`, `text`, and `json`.
+
+Other commands: `init`, `ingest`, `analyze`, `send`, `status`, `config`.
+
+## Current Status (2026-02-10)
+
+The project is fully functional with multi-provider LLM support and XDG-based configuration.
 
 ### Completed
 
 - Provider-agnostic LLM abstraction (`src/llm/`) with Gemini, OpenAI, and Anthropic.
 - Config migration from `ANTHROPIC_API_KEY` to `LLM_API_KEY` / `LLM_PROVIDER`.
+- XDG config support (`~/.config/feed/config.env`) with `feed init` wizard.
+- Terminal-first digest output with `--format` and `--send` flags.
 - CLI renamed from `digest` to `feed` with global `--verbose` flag.
 - JSON output for `feed status`.
 - CLI robustness fixes (exit codes, timeouts, error handling).
 - `./feed` wrapper script for simplified invocation.
+- Project renamed from feed-agent to feed.
