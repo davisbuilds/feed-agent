@@ -65,10 +65,14 @@ class Summarizer:
             from src.storage.cache import make_cache_key
 
             cache_key = make_cache_key(article.id, model_name)
-            cached = cache.get("summary", cache_key)
-            if cached is not None:
-                logger.info(f"Cache hit: {article.title[:50]}...")
-                return SummaryResult(**cached)
+            try:
+                cached = cache.get("summary", cache_key)
+                if cached is not None:
+                    logger.info(f"Cache hit: {article.title[:50]}...")
+                    return SummaryResult(**cached)
+            except Exception as exc:
+                logger.warning(f"Cache read failed, falling through to LLM: {exc}")
+                cache_key = None
         else:
             cache_key = None
 

@@ -45,7 +45,7 @@ class CacheStore:
 
     @contextmanager
     def _connection(self) -> Generator[sqlite3.Connection, None, None]:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30)
         conn.row_factory = sqlite3.Row
         try:
             yield conn
