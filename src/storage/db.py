@@ -81,6 +81,16 @@ class Database:
                     sent_at TEXT,
                     email_id TEXT  -- From Resend
                 );
+
+                -- Response cache with TTL
+                CREATE TABLE IF NOT EXISTS cache (
+                    kind TEXT NOT NULL,
+                    key TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TEXT NOT NULL,
+                    PRIMARY KEY (kind, key)
+                );
             """)
 
     @contextmanager
