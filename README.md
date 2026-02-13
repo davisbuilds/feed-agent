@@ -46,6 +46,21 @@ cd feed
 uv sync
 ```
 
+### 2b. Global CLI Install / Reinstall
+
+If you want `feed` available globally (not only `./feed` from this repo), install as an editable uv tool:
+
+```bash
+uv tool install --editable /Users/dg-mac-mini/Dev/feed
+```
+
+To refresh a stale global install after local updates:
+
+```bash
+uv tool uninstall feed
+uv tool install --editable /Users/dg-mac-mini/Dev/feed
+```
+
 ### 3. Configuration
 
 The quickest way to get started is the interactive setup wizard:

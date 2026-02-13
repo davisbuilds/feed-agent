@@ -86,7 +86,7 @@ def _resolve_feeds_config_path() -> Path:
 def version_callback(value: bool):
     """Print version and exit."""
     if value:
-        print(f"Feed Agent v{__version__}")
+        print(f"Feed CLI v{__version__}")
         raise typer.Exit()
 
 
