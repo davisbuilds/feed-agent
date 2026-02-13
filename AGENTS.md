@@ -31,7 +31,7 @@ feed/
 The project uses `uv` for dependency management.
 
 - **Run CLI**: `./feed <command>` (or `uv run feed <command>`)
-- **Run Tests**: `uv run pytest`
+- **Run Tests**: `uv run python -m pytest` (NOT `uv run pytest` — that fails with "No such file or directory")
 - **Lint**: `uv run ruff check .`
 - **Install**: `uv sync` (or `uv sync --extra dev` for dev tools)
 
@@ -62,18 +62,28 @@ Key config variables:
 - **Configuration**: `src.config.get_settings()` — Pydantic-based, reads XDG and `.env`.
 - **Logging**: `src.logging_config.get_logger(__name__)`.
 - **Database**: `src.storage.db.Database` — SQLite with WAL mode.
+- **Cache**: `src.storage.cache.CacheStore` — SQLite-backed response cache with TTL.
 - **Models**: Pydantic models in `src.models`.
-- **LLM access**: `src.llm.create_client(provider, api_key, model)` — factory with lazy imports. Supports `gemini` (default), `openai`, and `anthropic`.
+- **LLM access**: `src.llm.create_client(provider, api_key, model)` — factory with lazy imports, wrapped in `RetryClient` with exponential backoff. Supports `gemini` (default), `openai`, and `anthropic`.
+
+## Coding Conventions
+
+Ruff is configured with strict rules. Watch for these common issues:
+
+- **`datetime.UTC`** not `timezone.utc` — ruff UP017 enforces the modern alias.
+- **`collections.abc.Generator`** not `typing.Generator` — ruff UP035 enforces modern imports.
+- **Forward-ref type hints**: Use `from __future__ import annotations` + `TYPE_CHECKING` block instead of string annotations like `"Foo | None"` — string annotations trigger ruff F821 (undefined name).
+- **Import ordering**: `from collections.abc` sorts before `from contextlib` — ruff I001 enforces isort-style ordering.
 
 ## CLI Overview
 
 `./feed run` outputs the digest to the terminal by default (rich format). Use `--send` to deliver via email, or `--format` to choose between `rich`, `text`, and `json`.
 
-Other commands: `init`, `ingest`, `analyze`, `send`, `status`, `config`.
+Other commands: `init`, `ingest`, `analyze`, `send`, `status`, `config`, `cache`.
 
-## Current Status (2026-02-10)
+## Current Status (2026-02-12)
 
-The project is fully functional with multi-provider LLM support and XDG-based configuration.
+The project is fully functional with multi-provider LLM support, XDG-based configuration, response caching, and retry logic.
 
 ### Completed
 
@@ -86,3 +96,6 @@ The project is fully functional with multi-provider LLM support and XDG-based co
 - CLI robustness fixes (exit codes, timeouts, error handling).
 - `./feed` wrapper script for simplified invocation.
 - Project renamed from feed-agent to feed.
+- LLM retry with exponential backoff (`src/llm/retry.py`).
+- SQLite-backed response cache with TTL (`src/storage/cache.py`).
+- `feed cache` command and `--no-cache` flag on `run`/`analyze`.

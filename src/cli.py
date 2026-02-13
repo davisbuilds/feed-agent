@@ -42,12 +42,6 @@ FormatChoice = typer.Option(
 
 __version__ = "0.1.0"
 
-app = typer.Typer(
-    name="feed",
-    help="Feed Agent - Your personal newsletter intelligence",
-    no_args_is_help=True,
-    add_completion=False,
-)
 console = Console()
 
 # Global state
@@ -96,6 +90,40 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
+_QUICK_REF_LINES = [
+    "",
+    "Quick Reference:",
+    "  run      [--send] [--format rich|text|json] [--no-cache]",
+    "  ingest",
+    "  analyze  [--format rich|text|json] [--no-cache]",
+    "  send     [--test] [--format rich|text|json]",
+    "  test     [--url URL | --name NAME | --all] [--strict] [--timeout N]",
+    "  status   [--json]",
+    "  config",
+    "  cache    [--clear]",
+    "  init     [--force]",
+]
+
+
+class _HelpGroup(typer.core.TyperGroup):
+    """Custom group that appends a quick-reference section to --help."""
+
+    def format_help(self, ctx, formatter):
+        super().format_help(ctx, formatter)
+        for line in _QUICK_REF_LINES:
+            formatter.write(line + "\n")
+
+
+app = typer.Typer(
+    name="feed",
+    help="Feed - Your newsletter digest CLI",
+    no_args_is_help=True,
+    add_completion=False,
+    cls=_HelpGroup,
+    rich_markup_mode="markdown",
+)
+
+
 @app.callback()
 def main(
     verbose: bool = typer.Option(
@@ -113,7 +141,7 @@ def main(
     ),
 ):
     """
-    Feed Agent CLI
+    Feed - Your newsletter digest CLI
     """
     state["verbose"] = verbose
     if verbose:
