@@ -7,6 +7,7 @@ Usage:
     ./feed run --format json      # Full pipeline, output as JSON
     ./feed run --send             # Full pipeline, send email instead
     ./feed ingest                 # Only fetch new articles
+    ./feed test --all             # Test configured feeds for reachability/parseability
     ./feed analyze                # Only summarize pending articles
     ./feed send                   # Send digest email
     ./feed send --format rich     # Preview digest in terminal (no send)
@@ -69,6 +70,23 @@ def _load_settings():
             console.print(f"  [red]✗[/red] {e}")
         console.print("\n[dim]Run 'feed init' to set up, or 'feed config' to verify.[/dim]")
         raise typer.Exit(code=1) from None
+
+
+def _resolve_feeds_config_path() -> Path:
+    """
+    Resolve feeds.yaml path.
+
+    Prefer configured path when full settings are available; fall back to common
+    defaults so feed testing works even before full API/email setup.
+    """
+    try:
+        settings = get_settings()
+        return settings.config_dir / "feeds.yaml"
+    except Exception:
+        xdg_feeds = XDG_CONFIG_PATH / "feeds.yaml"
+        if xdg_feeds.exists():
+            return xdg_feeds
+        return Path("config/feeds.yaml")
 
 
 def version_callback(value: bool):
@@ -331,6 +349,12 @@ def run(
 
     if ingest_result.feeds_failed > 0:
         console.print(f"  [yellow]⚠ {ingest_result.feeds_failed} feeds failed[/yellow]")
+        for error in ingest_result.errors[:5]:
+            console.print(f"    [yellow]• {error}[/yellow]")
+        if len(ingest_result.errors) > 5:
+            console.print(
+                f"    [dim]... and {len(ingest_result.errors) - 5} more feed errors[/dim]"
+            )
 
     # Phase 2: Analyze
     console.print("\n[bold cyan]Phase 2: Analyzing articles[/bold cyan]")
@@ -412,6 +436,177 @@ def ingest() -> None:
     table.add_row("Duration", f"{result.duration_seconds:.1f}s")
 
     console.print(table)
+
+    if result.errors:
+        console.print("\n[yellow]Feed failures:[/yellow]")
+        for error in result.errors[:10]:
+            console.print(f"  • {error}")
+        if len(result.errors) > 10:
+            console.print(f"  ... and {len(result.errors) - 10} more")
+        raise typer.Exit(code=1)
+
+
+@app.command("test")
+def test_feeds(
+    url: str | None = typer.Option(
+        None,
+        "--url",
+        help="Test a one-off feed URL (does not require feeds.yaml)",
+    ),
+    name: str | None = typer.Option(
+        None,
+        "--name",
+        help="Test one configured feed by name",
+    ),
+    all_feeds: bool = typer.Option(
+        False,
+        "--all",
+        help="Test all configured feeds in feeds.yaml (default when no selector is provided)",
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Fail if parser warning occurs or feed has zero entries",
+    ),
+    timeout: int = typer.Option(20, "--timeout", min=1, help="HTTP timeout in seconds"),
+    lookback_hours: int = typer.Option(
+        24,
+        "--lookback-hours",
+        min=1,
+        help="Lookback window used to count recent entries",
+    ),
+    max_articles: int = typer.Option(
+        10,
+        "--max-articles",
+        min=1,
+        help="Maximum recent articles to inspect per feed",
+    ),
+) -> None:
+    """Test feed URLs and parser health before adding/running them."""
+    selectors_used = sum([bool(url), bool(name), bool(all_feeds)])
+    if selectors_used > 1:
+        console.print("[red]Use only one of --url, --name, or --all.[/red]")
+        raise typer.Exit(code=1)
+    if selectors_used == 0:
+        all_feeds = True
+
+    feeds_to_test: list[tuple[str, dict[str, str]]] = []
+    if url:
+        feeds_to_test = [("ad-hoc", {"url": url, "category": "Ad-hoc"})]
+    else:
+        feeds_path = _resolve_feeds_config_path()
+        try:
+            feed_config = FeedConfig(feeds_path)
+        except Exception as e:
+            console.print(f"[red]Failed to load feeds config ({feeds_path}): {e}[/red]")
+            raise typer.Exit(code=1) from None
+
+        feeds = feed_config.feeds
+        if not feeds:
+            console.print(f"[yellow]No feeds configured in {feeds_path}[/yellow]")
+            raise typer.Exit(code=1)
+
+        if name:
+            if name not in feeds:
+                sample_names = ", ".join(list(feeds.keys())[:8])
+                console.print(f"[red]Feed '{name}' not found in {feeds_path}[/red]")
+                if sample_names:
+                    console.print(f"[dim]Configured feeds: {sample_names}[/dim]")
+                raise typer.Exit(code=1)
+            feeds_to_test = [(name, feeds[name])]
+        else:
+            feeds_to_test = list(feeds.items())
+
+    from src.ingest.feeds import fetch_feed
+
+    console.print(f"[bold]Testing {len(feeds_to_test)} feed(s)...[/bold]")
+    results = []
+    for feed_name, feed_cfg in feeds_to_test:
+        feed_url = str(feed_cfg.get("url", "")).strip()
+        category = str(feed_cfg.get("category", "Uncategorized"))
+        if not feed_url:
+            from src.ingest.feeds import FeedResult
+
+            results.append(
+                FeedResult(
+                    feed_url="",
+                    feed_name=feed_name,
+                    articles=[],
+                    success=False,
+                    error="Missing URL",
+                    attempts=0,
+                )
+            )
+            continue
+
+        results.append(
+            fetch_feed(
+                feed_url=feed_url,
+                feed_name=feed_name,
+                category=category,
+                lookback_hours=lookback_hours,
+                max_articles=max_articles,
+                timeout=timeout,
+            )
+        )
+
+    table = Table(title="Feed Test Results")
+    table.add_column("Feed", style="cyan", no_wrap=True)
+    table.add_column("Result", style="bold", no_wrap=True)
+    table.add_column("HTTP", style="green", no_wrap=True)
+    table.add_column("Entries", style="green", no_wrap=True)
+    table.add_column("Details", style="dim", overflow="fold")
+
+    failures: list[str] = []
+    for result in results:
+        strict_reasons: list[str] = []
+        if strict and result.entry_count == 0:
+            strict_reasons.append("zero entries")
+        if strict and result.bozo:
+            strict_reasons.append("parser warning")
+
+        passed = result.success and not strict_reasons
+        status_label = "[green]PASS[/green]" if passed else "[red]FAIL[/red]"
+        http_label = str(result.status_code) if result.status_code is not None else "-"
+        details_parts: list[str] = []
+
+        if result.content_type:
+            details_parts.append(result.content_type.split(";")[0])
+        if result.response_time_ms is not None:
+            details_parts.append(f"{result.response_time_ms:.0f} ms")
+        if result.attempts > 1:
+            details_parts.append(f"{result.attempts} attempts")
+        if result.final_url and result.final_url != result.feed_url:
+            details_parts.append(f"redirected to {result.final_url}")
+        if result.bozo_exception:
+            details_parts.append(f"parser: {result.bozo_exception}")
+
+        if strict_reasons:
+            details_parts.append("strict: " + ", ".join(strict_reasons))
+        if result.error:
+            details_parts.append(result.error)
+
+        table.add_row(
+            result.feed_name,
+            status_label,
+            http_label,
+            str(result.entry_count),
+            " | ".join(details_parts) if details_parts else "-",
+        )
+
+        if not passed:
+            reason = result.error or ", ".join(strict_reasons) or "unknown failure"
+            failures.append(f"{result.feed_name}: {reason}")
+
+    console.print(table)
+
+    if failures:
+        console.print("\n[red]Feed test failures:[/red]")
+        for failure in failures:
+            console.print(f"  • {failure}")
+        raise typer.Exit(code=1)
+
+    console.print("\n[green]✓ All feed tests passed[/green]")
 
 
 @app.command()

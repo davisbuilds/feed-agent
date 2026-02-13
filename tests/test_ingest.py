@@ -171,8 +171,10 @@ class TestFeedTimeout:
     def test_fetch_feed_uses_httpx_with_timeout(self, mock_get):
         """fetch_feed should use httpx.get with the timeout parameter."""
         mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.url = "https://example.com/feed.xml"
+        mock_response.headers = {"content-type": "application/rss+xml"}
         mock_response.content = b"<rss><channel><title>Test</title></channel></rss>"
-        mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
 
         fetch_feed(
@@ -185,6 +187,60 @@ class TestFeedTimeout:
         call_kwargs = mock_get.call_args
         assert call_kwargs.kwargs["timeout"] == 15
         assert call_kwargs.kwargs["follow_redirects"] is True
+
+    @patch("src.ingest.feeds.httpx.get")
+    def test_fetch_feed_retries_with_browser_headers_on_404(self, mock_get):
+        """A likely bot-filtered 404 should be retried with browser-like headers."""
+        first = Mock()
+        first.status_code = 404
+        first.url = "https://example.com/feed"
+        first.headers = {"content-type": "text/html"}
+        first.content = b"Not found"
+
+        second = Mock()
+        second.status_code = 200
+        second.url = "https://example.com/feed.xml"
+        second.headers = {"content-type": "application/rss+xml"}
+        second.content = b"<rss><channel><title>Test</title></channel></rss>"
+
+        mock_get.side_effect = [first, second]
+
+        result = fetch_feed(
+            feed_url="https://example.com/feed",
+            feed_name="Test",
+        )
+
+        assert result.success is True
+        assert result.attempts == 2
+        assert result.status_code == 200
+        assert mock_get.call_count == 2
+
+    @patch("src.ingest.feeds.httpx.get")
+    def test_fetch_feed_returns_http_error_details(self, mock_get):
+        """HTTP failures should include status and URL diagnostics."""
+        first = Mock()
+        first.status_code = 404
+        first.url = "https://example.com/feed"
+        first.headers = {"content-type": "text/html"}
+        first.content = b"Not found"
+
+        second = Mock()
+        second.status_code = 404
+        second.url = "https://example.com/feed"
+        second.headers = {"content-type": "text/html"}
+        second.content = b"Not found"
+
+        mock_get.side_effect = [first, second]
+
+        result = fetch_feed(
+            feed_url="https://example.com/feed",
+            feed_name="Test",
+        )
+
+        assert result.success is False
+        assert result.status_code == 404
+        assert result.attempts == 2
+        assert "HTTP 404" in (result.error or "")
 
     @patch("src.ingest.feeds.httpx.get")
     def test_fetch_feed_handles_timeout_error(self, mock_get):

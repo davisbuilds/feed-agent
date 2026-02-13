@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, HttpUrl, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.llm import PROVIDER_DEFAULTS
@@ -103,6 +103,17 @@ class Settings(BaseSettings):
         return self
 
 
+class FeedEntry(BaseModel):
+    """Validated feed entry from feeds.yaml."""
+
+    url: HttpUrl = Field(..., description="RSS/Atom feed URL")
+    category: str = Field(default="Uncategorized")
+    priority: int | None = Field(default=None, ge=1, le=5)
+    notes: str | None = Field(default=None)
+
+    model_config = {"extra": "allow"}
+
+
 class FeedConfig:
     """Configuration for RSS feeds."""
 
@@ -120,7 +131,56 @@ class FeedConfig:
         with open(self.config_path) as file_handle:
             data = yaml.safe_load(file_handle) or {}
 
-        self._feeds = data.get("feeds", {})
+        if not isinstance(data, dict):
+            raise ValueError("Invalid feeds.yaml: top-level structure must be a mapping")
+
+        raw_feeds = data.get("feeds", {})
+        if raw_feeds is None:
+            self._feeds = {}
+            return
+        if not isinstance(raw_feeds, dict):
+            raise ValueError("Invalid feeds.yaml: 'feeds' must be a mapping")
+
+        validated_feeds: dict[str, dict] = {}
+        validation_errors: list[str] = []
+        url_to_names: dict[str, list[str]] = {}
+
+        for raw_name, raw_feed in raw_feeds.items():
+            feed_name = str(raw_name).strip()
+            if not feed_name:
+                validation_errors.append("Feed name cannot be empty")
+                continue
+            if not isinstance(raw_feed, dict):
+                validation_errors.append(f"{feed_name}: feed configuration must be a mapping")
+                continue
+
+            try:
+                parsed = FeedEntry.model_validate(raw_feed)
+            except ValidationError as exc:
+                details = "; ".join(
+                    f"{'.'.join(str(part) for part in err['loc'])}: {err['msg']}"
+                    for err in exc.errors()
+                )
+                validation_errors.append(f"{feed_name}: {details}")
+                continue
+
+            entry = parsed.model_dump(mode="python")
+            entry["url"] = str(parsed.url)
+            validated_feeds[feed_name] = entry
+            url_to_names.setdefault(entry["url"], []).append(feed_name)
+
+        duplicate_url_errors = [
+            f"Duplicate feed URL {url}: {', '.join(names)}"
+            for url, names in url_to_names.items()
+            if len(names) > 1
+        ]
+        validation_errors.extend(duplicate_url_errors)
+
+        if validation_errors:
+            rendered = "\n  - ".join(validation_errors)
+            raise ValueError(f"Invalid feeds.yaml entries:\n  - {rendered}")
+
+        self._feeds = validated_feeds
 
     @property
     def feeds(self) -> dict[str, dict]:

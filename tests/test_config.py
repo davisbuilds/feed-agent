@@ -1,7 +1,9 @@
 """Tests for settings model and env aliases."""
 
+import pytest
+
 from src import config
-from src.config import Settings
+from src.config import FeedConfig, Settings
 
 
 def test_settings_supports_legacy_google_api_key_alias(monkeypatch) -> None:
@@ -64,3 +66,43 @@ def test_ignores_legacy_gemini_model_for_non_gemini_provider(monkeypatch) -> Non
 
     assert settings.llm_provider == "openai"
     assert settings.llm_model == "gpt-4o-mini"
+
+
+def test_feed_config_rejects_invalid_feed_url(tmp_path) -> None:
+    """Feed entries should fail fast on invalid URLs."""
+    feeds_path = tmp_path / "feeds.yaml"
+    feeds_path.write_text(
+        "feeds:\n"
+        "  bad_feed:\n"
+        "    url: definitely-not-a-url\n"
+    )
+
+    with pytest.raises(ValueError, match="bad_feed"):
+        FeedConfig(feeds_path)
+
+
+def test_feed_config_rejects_non_mapping_feed_entry(tmp_path) -> None:
+    """Feed entry values must be mapping objects."""
+    feeds_path = tmp_path / "feeds.yaml"
+    feeds_path.write_text(
+        "feeds:\n"
+        "  bad_feed: https://example.com/feed.xml\n"
+    )
+
+    with pytest.raises(ValueError, match="bad_feed"):
+        FeedConfig(feeds_path)
+
+
+def test_feed_config_rejects_duplicate_urls(tmp_path) -> None:
+    """Duplicate feed URLs should fail validation to avoid duplicate ingest work."""
+    feeds_path = tmp_path / "feeds.yaml"
+    feeds_path.write_text(
+        "feeds:\n"
+        "  feed_one:\n"
+        "    url: https://example.com/feed.xml\n"
+        "  feed_two:\n"
+        "    url: https://example.com/feed.xml\n"
+    )
+
+    with pytest.raises(ValueError, match="Duplicate feed URL"):
+        FeedConfig(feeds_path)

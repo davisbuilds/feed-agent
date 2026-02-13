@@ -106,6 +106,8 @@ Run the full daily workflow (Ingest → Analyze → display digest):
 | `./feed run` | Full pipeline: ingest, analyze, and display digest |
 | `./feed status` | Show pipeline statistics and recent articles |
 | `./feed ingest` | Fetch new articles from feeds |
+| `./feed test --all` | Validate feed URLs and parser health for configured feeds |
+| `./feed test --url <feed_url>` | Test a one-off feed URL before adding it |
 | `./feed analyze` | Summarize pending articles with AI |
 | `./feed send` | Generate and send the email digest |
 | `./feed config` | Verify configuration and show config file locations |

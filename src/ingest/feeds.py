@@ -4,6 +4,7 @@ RSS feed fetching with error handling and timeout management.
 
 import hashlib
 from datetime import datetime, timedelta, timezone
+from time import perf_counter
 from typing import NamedTuple
 
 import feedparser
@@ -16,6 +17,26 @@ from src.models import Article
 
 logger = get_logger("feeds")
 
+FEED_AGENT_HEADERS = {
+    "User-Agent": "FeedAgent/1.0",
+    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+}
+
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "application/rss+xml,application/atom+xml,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+BOT_FILTER_RETRY_STATUS_CODES = {403, 404}
+
 
 class FeedResult(NamedTuple):
     """Result of fetching a feed."""
@@ -25,6 +46,14 @@ class FeedResult(NamedTuple):
     articles: list[Article]
     success: bool
     error: str | None = None
+    status_code: int | None = None
+    final_url: str | None = None
+    content_type: str | None = None
+    attempts: int = 1
+    response_time_ms: float | None = None
+    entry_count: int = 0
+    bozo: bool = False
+    bozo_exception: str | None = None
 
 
 def generate_article_id(url: str) -> str:
@@ -55,21 +84,71 @@ def fetch_feed(
         FeedResult with articles or error information
     """
     logger.info(f"Fetching feed: {feed_name}")
-    
+    attempts = 0
+    status_code: int | None = None
+    final_url: str | None = None
+    content_type: str | None = None
+    response_time_ms: float | None = None
+    attempt_summaries: list[str] = []
+
     try:
-        # Fetch with httpx for proper timeout support, then parse with feedparser
-        response = httpx.get(
-            feed_url,
-            timeout=timeout,
-            follow_redirects=True,
-            headers={"User-Agent": "FeedAgent/1.0"},
-        )
-        response.raise_for_status()
+        response = None
+        for profile_name, headers in (
+            ("feed-agent", FEED_AGENT_HEADERS),
+            ("browser", BROWSER_HEADERS),
+        ):
+            attempts += 1
+            response, response_time_ms = _fetch_response(
+                feed_url=feed_url,
+                timeout=timeout,
+                headers=headers,
+            )
+            status_code = response.status_code
+            final_url = str(response.url)
+            content_type = response.headers.get("content-type")
+            attempt_summaries.append(f"{status_code} ({profile_name})")
+
+            if status_code < 400:
+                break
+
+            # Some feed hosts/CDNs block simple bot user agents with false 404/403.
+            if (
+                status_code in BOT_FILTER_RETRY_STATUS_CODES
+                and headers is FEED_AGENT_HEADERS
+            ):
+                logger.debug(
+                    f"{feed_name}: got {status_code} with FeedAgent headers, retrying "
+                    "with browser-like headers"
+                )
+                continue
+
+            break
+
+        if response is None:
+            raise RuntimeError("Feed request did not produce a response")
+
+        if response.status_code >= 400:
+            error_msg = _format_http_error(response, attempt_summaries)
+            logger.warning(f"Feed HTTP error for {feed_name}: {error_msg}")
+            return FeedResult(
+                feed_url=feed_url,
+                feed_name=feed_name,
+                articles=[],
+                success=False,
+                error=error_msg,
+                status_code=response.status_code,
+                final_url=str(response.url),
+                content_type=response.headers.get("content-type"),
+                attempts=attempts,
+                response_time_ms=response_time_ms,
+            )
+
         feed = feedparser.parse(response.content)
-        
+
         # Check for feed-level errors
+        bozo_exception = str(feed.bozo_exception) if feed.bozo and feed.bozo_exception else None
         if feed.bozo and feed.bozo_exception:
-            error_msg = str(feed.bozo_exception)
+            error_msg = bozo_exception or "Unknown feed parse error"
             # Some bozo exceptions are recoverable (e.g., CharacterEncodingOverride)
             if not feed.entries:
                 logger.warning(f"Feed error for {feed_name}: {error_msg}")
@@ -79,32 +158,39 @@ def fetch_feed(
                     articles=[],
                     success=False,
                     error=error_msg,
+                    status_code=status_code,
+                    final_url=final_url,
+                    content_type=content_type,
+                    attempts=attempts,
+                    response_time_ms=response_time_ms,
+                    bozo=True,
+                    bozo_exception=error_msg,
                 )
-        
+
         # Determine feed title
         actual_feed_name = feed.feed.get("title", feed_name)
-        
+
         # Calculate cutoff time
         cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-        
+
         articles: list[Article] = []
-        
+
         for entry in feed.entries[:max_articles * 2]:  # Fetch extra, filter by date
             # Parse publication date
             published = _parse_entry_date(entry)
             if published is None:
                 logger.debug(f"Skipping entry without date: {entry.get('title', 'Unknown')}")
                 continue
-            
+
             # Skip old articles
             if published < cutoff:
                 continue
-            
+
             # Extract article URL
             url = entry.get("link", "")
             if not url:
                 continue
-            
+
             # Create article
             article = Article(
                 id=generate_article_id(url),
@@ -117,21 +203,57 @@ def fetch_feed(
                 content="",  # Will be populated by parser
                 category=category,
             )
-            
+
             articles.append(article)
-            
+
             if len(articles) >= max_articles:
                 break
-        
+
         logger.info(f"Found {len(articles)} new articles from {feed_name}")
-        
+
         return FeedResult(
             feed_url=feed_url,
             feed_name=actual_feed_name,
             articles=articles,
             success=True,
+            status_code=status_code,
+            final_url=final_url,
+            content_type=content_type,
+            attempts=attempts,
+            response_time_ms=response_time_ms,
+            entry_count=len(feed.entries),
+            bozo=bool(feed.bozo),
+            bozo_exception=bozo_exception,
         )
-        
+
+    except httpx.TimeoutException as e:
+        logger.error(f"Timeout fetching {feed_name}: {e}")
+        return FeedResult(
+            feed_url=feed_url,
+            feed_name=feed_name,
+            articles=[],
+            success=False,
+            error=f"Request timed out after {timeout}s: {e}",
+            status_code=status_code,
+            final_url=final_url,
+            content_type=content_type,
+            attempts=max(attempts, 1),
+            response_time_ms=response_time_ms,
+        )
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP error fetching {feed_name}: {e}")
+        return FeedResult(
+            feed_url=feed_url,
+            feed_name=feed_name,
+            articles=[],
+            success=False,
+            error=str(e),
+            status_code=status_code,
+            final_url=final_url,
+            content_type=content_type,
+            attempts=max(attempts, 1),
+            response_time_ms=response_time_ms,
+        )
     except Exception as e:
         logger.error(f"Failed to fetch {feed_name}: {e}")
         return FeedResult(
@@ -140,7 +262,35 @@ def fetch_feed(
             articles=[],
             success=False,
             error=str(e),
+            status_code=status_code,
+            final_url=final_url,
+            content_type=content_type,
+            attempts=max(attempts, 1),
+            response_time_ms=response_time_ms,
         )
+
+
+def _fetch_response(feed_url: str, timeout: int, headers: dict[str, str]) -> tuple[httpx.Response, float]:
+    """Fetch a feed URL and return (response, elapsed_ms)."""
+    started = perf_counter()
+    response = httpx.get(
+        feed_url,
+        timeout=timeout,
+        follow_redirects=True,
+        headers=headers,
+    )
+    elapsed_ms = (perf_counter() - started) * 1000
+    return response, elapsed_ms
+
+
+def _format_http_error(response: httpx.Response, attempt_summaries: list[str]) -> str:
+    """Build a compact HTTP error message with diagnostics."""
+    parts = [f"HTTP {response.status_code} for {response.url}"]
+    if attempt_summaries:
+        parts.append(f"attempts: {', '.join(attempt_summaries)}")
+    if content_type := response.headers.get("content-type"):
+        parts.append(f"content-type: {content_type}")
+    return " | ".join(parts)
 
 
 def _parse_entry_date(entry: dict) -> datetime | None:
@@ -228,15 +378,25 @@ def fetch_all_feeds(
                 category=cat, 
                 lookback_hours=lookback_hours, 
                 max_articles=max_articles_per_feed
-            ): name for url, name, cat in fetch_args
+            ): (name, url) for url, name, cat in fetch_args
         }
-        
+
         for future in concurrent.futures.as_completed(future_to_feed):
-            feed_name = future_to_feed[future]
+            feed_name, feed_url = future_to_feed[future]
             try:
                 result = future.result()
                 results.append(result)
             except Exception as e:
                 logger.error(f"Top-level error fetching {feed_name}: {e}")
-    
+                results.append(
+                    FeedResult(
+                        feed_url=feed_url,
+                        feed_name=feed_name,
+                        articles=[],
+                        success=False,
+                        error=f"Unhandled fetch error: {e}",
+                        attempts=1,
+                    )
+                )
+
     return results
