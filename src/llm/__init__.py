@@ -3,6 +3,7 @@
 from typing import Literal
 
 from .base import LLMClient, LLMError, LLMResponse
+from .retry import RetryClient
 
 Provider = Literal["gemini", "openai", "anthropic"]
 
@@ -13,8 +14,13 @@ PROVIDER_DEFAULTS: dict[Provider, str] = {
 }
 
 
-def create_client(provider: Provider, api_key: str, model: str | None = None) -> LLMClient:
-    """Create an LLM client for the given provider."""
+def create_client(
+    provider: Provider,
+    api_key: str,
+    model: str | None = None,
+    max_retries: int = 2,
+) -> RetryClient:
+    """Create an LLM client for the given provider, wrapped with retry logic."""
     if provider not in PROVIDER_DEFAULTS:
         raise LLMError(f"Unknown LLM provider: {provider}")
 
@@ -25,20 +31,22 @@ def create_client(provider: Provider, api_key: str, model: str | None = None) ->
             case "gemini":
                 from .gemini import GeminiClient
 
-                return GeminiClient(api_key=api_key, model=resolved_model)
+                inner = GeminiClient(api_key=api_key, model=resolved_model)
             case "openai":
                 from .openai import OpenAIClient
 
-                return OpenAIClient(api_key=api_key, model=resolved_model)
+                inner = OpenAIClient(api_key=api_key, model=resolved_model)
             case "anthropic":
                 from .anthropic import AnthropicClient
 
-                return AnthropicClient(api_key=api_key, model=resolved_model)
+                inner = AnthropicClient(api_key=api_key, model=resolved_model)
     except ImportError as exc:
         raise LLMError(
             f"Missing dependency for provider '{provider}'. "
             f"Install the '{provider}' extra to continue."
         ) from exc
+
+    return RetryClient(inner, max_retries=max_retries)
 
 
 __all__ = [
@@ -47,5 +55,6 @@ __all__ = [
     "LLMResponse",
     "PROVIDER_DEFAULTS",
     "Provider",
+    "RetryClient",
     "create_client",
 ]
