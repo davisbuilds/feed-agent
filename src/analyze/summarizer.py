@@ -1,8 +1,13 @@
 """Article summarization via provider-agnostic LLM client."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    from src.storage.cache import CacheStore
 
 from pydantic import BaseModel, Field
 
@@ -56,7 +61,7 @@ class Summarizer:
     def summarize_article(
         self,
         article: Article,
-        cache: "CacheStore | None" = None,
+        cache: CacheStore | None = None,
         model_name: str | None = None,
     ) -> SummaryResult:
         """Generate a summary for a single article."""
@@ -132,7 +137,7 @@ class Summarizer:
         self,
         articles: list[Article],
         on_progress: Callable[[int, int, Article], None] | None = None,
-        cache: "CacheStore | None" = None,
+        cache: CacheStore | None = None,
         model_name: str | None = None,
     ) -> list[SummaryResult]:
         """Summarize multiple articles concurrently."""

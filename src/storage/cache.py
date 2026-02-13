@@ -3,10 +3,11 @@
 import hashlib
 import json
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 from src.logging_config import get_logger
 
@@ -58,7 +59,7 @@ class CacheStore:
 
     def get(self, kind: str, key: str) -> dict[str, Any] | None:
         """Get a cached value. Returns None if missing or expired."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with self._connection() as conn:
             row = conn.execute(
                 "SELECT value FROM cache WHERE kind = ? AND key = ? AND expires_at > ?",
@@ -77,7 +78,7 @@ class CacheStore:
     ) -> None:
         """Store a value with TTL. Overwrites existing entries."""
         ttl = ttl_days if ttl_days is not None else self.default_ttl_days
-        expires_at = datetime.now(timezone.utc) + timedelta(days=ttl)
+        expires_at = datetime.now(UTC) + timedelta(days=ttl)
         with self._connection() as conn:
             conn.execute(
                 """INSERT OR REPLACE INTO cache (kind, key, value, expires_at)
@@ -87,7 +88,7 @@ class CacheStore:
             # Lazy cleanup of expired rows
             conn.execute(
                 "DELETE FROM cache WHERE expires_at <= ?",
-                (datetime.now(timezone.utc).isoformat(),),
+                (datetime.now(UTC).isoformat(),),
             )
 
     def clear(self, kind: str | None = None) -> int:
@@ -101,7 +102,7 @@ class CacheStore:
 
     def stats(self) -> dict[str, Any]:
         """Return cache statistics."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with self._connection() as conn:
             total = conn.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
             expired = conn.execute(
