@@ -38,6 +38,7 @@ COST_PER_1K_TOKENS: dict[str, dict[str, float]] = {
 def run_analysis(
     db: Database | None = None,
     lookback_hours: int | None = None,
+    no_cache: bool = False,
 ) -> AnalysisResult:
     """Run the full analysis pipeline."""
     import time
@@ -56,6 +57,16 @@ def run_analysis(
     if db is None:
         db = Database(settings.data_dir / "articles.db")
 
+    # Set up cache unless disabled
+    cache = None
+    if not no_cache:
+        from src.storage.cache import CacheStore
+
+        cache = CacheStore(
+            db_path=settings.data_dir / "articles.db",
+            default_ttl_days=settings.cache_ttl_days,
+        )
+
     since = datetime.now(UTC) - timedelta(hours=lookback_hours)
     articles = db.get_articles_since(since, status=ArticleStatus.PENDING)
 
@@ -72,7 +83,12 @@ def run_analysis(
 
     logger.info(f"Analyzing {len(articles)} articles")
 
-    llm_client = create_client(provider=provider, api_key=api_key, model=model)
+    llm_client = create_client(
+        provider=provider,
+        api_key=api_key,
+        model=model,
+        max_retries=settings.llm_retries,
+    )
     summarizer = Summarizer(client=llm_client)
     digest_builder = DigestBuilder(client=llm_client)
 
@@ -81,7 +97,12 @@ def run_analysis(
     def on_progress(i: int, total: int, article: Article) -> None:
         logger.info(f"[{i + 1}/{total}] {article.title[:40]}...")
 
-    summary_results = summarizer.summarize_batch(articles, on_progress=on_progress)
+    summary_results = summarizer.summarize_batch(
+        articles,
+        on_progress=on_progress,
+        cache=cache,
+        model_name=model,
+    )
 
     for article, result in zip(articles, summary_results, strict=False):
         total_tokens += result["tokens_used"]
