@@ -10,13 +10,16 @@ feed/
 ├── src/                 # Application source code
 │   ├── analyze/         # Digest generation (Summarizer, DigestBuilder, Prompts)
 │   ├── deliver/         # Email delivery (Jinja2 templates, Resend integration)
-│   ├── ingest/          # RSS fetching and parsing
+│   ├── ingest/          # RSS fetching, parsing, and feed testing
 │   ├── llm/             # Multi-provider LLM abstraction layer
 │   │   ├── base.py      # LLMClient protocol interface
 │   │   ├── gemini.py    # Google Gemini provider
 │   │   ├── openai.py    # OpenAI provider
-│   │   └── anthropic.py # Anthropic provider
-│   ├── storage/         # SQLite database (WAL mode)
+│   │   ├── anthropic.py # Anthropic provider
+│   │   └── retry.py     # RetryClient with exponential backoff
+│   ├── storage/         # SQLite database + cache store (WAL mode)
+│   │   ├── db.py        # Main article database
+│   │   └── cache.py     # LLM response cache (TTL + lazy expiration)
 │   ├── cli.py           # Typer CLI entry point
 │   ├── config.py        # Pydantic Settings management
 │   ├── logging_config.py
@@ -79,9 +82,23 @@ Ruff is configured with strict rules. Watch for these common issues:
 
 `./feed run` outputs the digest to the terminal by default (rich format). Use `--send` to deliver via email, or `--format` to choose between `rich`, `text`, and `json`.
 
-Other commands: `init`, `ingest`, `analyze`, `send`, `status`, `config`, `cache`.
+Commands: `init`, `run`, `ingest`, `test`, `analyze`, `send`, `status`, `config`, `cache`.
 
-## Current Status (2026-02-12)
+Quick reference:
+
+```text
+run      [--send] [--format rich|text|json] [--no-cache]
+ingest
+analyze  [--format rich|text|json] [--no-cache]
+send     [--test] [--format rich|text|json]
+test     [--url URL | --name NAME | --all] [--strict] [--timeout N] [--lookback-hours N] [--max-articles N]
+status   [--json]
+config
+cache    [--clear]
+init     [--force]
+```
+
+## Current Status (2026-02-13)
 
 The project is fully functional with multi-provider LLM support, XDG-based configuration, response caching, and retry logic.
 
@@ -99,3 +116,4 @@ The project is fully functional with multi-provider LLM support, XDG-based confi
 - LLM retry with exponential backoff (`src/llm/retry.py`).
 - SQLite-backed response cache with TTL (`src/storage/cache.py`).
 - `feed cache` command and `--no-cache` flag on `run`/`analyze`.
+- `feed test` command for feed URL/parser diagnostics (`--url`, `--name`, `--all`, `--strict`).

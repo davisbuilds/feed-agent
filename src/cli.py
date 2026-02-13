@@ -40,7 +40,7 @@ FormatChoice = typer.Option(
     help="Output format: rich (terminal), text (plain), or json",
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 console = Console()
 
