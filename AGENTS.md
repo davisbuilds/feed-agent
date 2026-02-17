@@ -82,12 +82,13 @@ Ruff is configured with strict rules. Watch for these common issues:
 
 `./feed run` outputs the digest to the terminal by default (rich format). Use `--send` to deliver via email, or `--format` to choose between `rich`, `text`, and `json`.
 
-Commands: `init`, `run`, `ingest`, `test`, `analyze`, `send`, `status`, `config`, `cache`.
+Commands: `init`, `run`, `schedule`, `ingest`, `test`, `analyze`, `send`, `status`, `config`, `cache`.
 
 Quick reference:
 
 ```text
 run      [--send] [--format rich|text|json] [--no-cache]
+schedule [--status] [--backend auto|cron|launchd] [--frequency daily|weekly] [--time HH:MM] [--install]
 ingest
 analyze  [--format rich|text|json] [--no-cache]
 send     [--test] [--format rich|text|json]

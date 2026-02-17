@@ -6,6 +6,9 @@ Usage:
     ./feed run --format text      # Full pipeline, output as plain text
     ./feed run --format json      # Full pipeline, output as JSON
     ./feed run --send             # Full pipeline, send email instead
+    ./feed schedule               # Print default scheduler config (Fri 17:00)
+    ./feed schedule --status      # Show installed scheduler status
+    ./feed schedule --install     # Install schedule with default backend
     ./feed ingest                 # Only fetch new articles
     ./feed test --all             # Test configured feeds for reachability/parseability
     ./feed analyze                # Only summarize pending articles
@@ -16,6 +19,8 @@ Usage:
 """
 
 import json
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -31,6 +36,17 @@ from rich.table import Table
 from src.config import XDG_CONFIG_PATH, FeedConfig, get_settings
 from src.logging_config import setup_logging
 from src.models import ArticleStatus, DailyDigest
+from src.scheduler import (
+    activate_launchd,
+    bootstrap_launchd,
+    build_cron_line,
+    build_plan,
+    get_cron_managed_block,
+    install_cron,
+    launchd_domain_and_service,
+    launchd_plist_path,
+    write_launchd_plist,
+)
 from src.storage.db import Database
 
 # Format choices for digest output
@@ -44,6 +60,24 @@ FormatChoice = typer.Option(
 __version__ = "0.2.0"
 
 console = Console()
+DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_SCHEDULE_LOG_FILE = Path("logs/scheduler.log")
+DEFAULT_LAUNCH_AGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
+ProjectRootOption = typer.Option(
+    DEFAULT_PROJECT_ROOT,
+    "--project-root",
+    help="Feed project root",
+)
+ScheduleLogFileOption = typer.Option(
+    DEFAULT_SCHEDULE_LOG_FILE,
+    "--log-file",
+    help="Log path for cron output (absolute or project-relative)",
+)
+LaunchAgentsDirOption = typer.Option(
+    DEFAULT_LAUNCH_AGENTS_DIR,
+    "--launch-agents-dir",
+    help="Directory for launchd plist files",
+)
 
 # Global state
 state = {"verbose": False}
@@ -93,6 +127,11 @@ def version_callback(value: bool):
 
 _QUICK_REF_ITEMS = [
     ("run", "[--send] [--format rich|text|json] [--no-cache]"),
+    (
+        "schedule",
+        "[--status] [--backend auto|cron|launchd] "
+        "[--frequency daily|weekly] [--install]",
+    ),
     ("ingest", ""),
     ("analyze", "[--format rich|text|json] [--no-cache]"),
     ("send", "[--test] [--format rich|text|json]"),
@@ -757,6 +796,236 @@ def send(
     else:
         console.print(f"[red]✗ Send failed: {result.error}[/red]")
         raise typer.Exit(code=1)
+
+
+@app.command()
+def schedule(
+    backend: str = typer.Option(
+        "auto",
+        "--backend",
+        help="Scheduler backend: auto, cron, or launchd",
+    ),
+    frequency: str = typer.Option(
+        "weekly",
+        "--frequency",
+        "-q",
+        help="Schedule frequency: daily or weekly",
+    ),
+    day_of_week: str = typer.Option(
+        "fri",
+        "--day-of-week",
+        "--day",
+        help="Day for weekly schedules (sun, mon, tue, wed, thu, fri, sat)",
+    ),
+    time: str = typer.Option(
+        "17:00",
+        "--time",
+        help="Run time in 24h HH:MM",
+    ),
+    lookback_hours: int | None = typer.Option(
+        None,
+        "--lookback-hours",
+        min=1,
+        help="LOOKBACK_HOURS override (weekly defaults to 168; daily to 24)",
+    ),
+    status: bool = typer.Option(
+        False,
+        "--status",
+        help="Show installed scheduler status for the selected backend/label",
+    ),
+    install: bool = typer.Option(
+        False,
+        "--install",
+        help="Install the schedule into the selected scheduler",
+    ),
+    activate: bool = typer.Option(
+        False,
+        "--activate",
+        help="For launchd, run immediately via kickstart after install",
+    ),
+    replace: bool = typer.Option(
+        True,
+        "--replace/--no-replace",
+        help="For cron install, replace existing managed block with the same label",
+    ),
+    label: str = typer.Option(
+        "com.user.feed",
+        "--label",
+        help="Job label (launchd label and cron block marker)",
+    ),
+    project_root: Path = ProjectRootOption,
+    runner: str | None = typer.Option(
+        None,
+        "--runner",
+        help="Command used to invoke feed (default: ./feed or 'uv run feed')",
+    ),
+    log_file: Path = ScheduleLogFileOption,
+    launch_agents_dir: Path = LaunchAgentsDirOption,
+) -> None:
+    """Generate, inspect, or install a schedule for `feed run --send`."""
+    freq = frequency.strip().lower()
+    day = day_of_week if freq == "weekly" else None
+    try:
+        plan = build_plan(
+            backend=backend,
+            frequency=frequency,
+            day_of_week=day,
+            time_str=time,
+            lookback_hours=lookback_hours,
+            project_root=project_root,
+            runner_override=runner,
+            log_file=log_file,
+            label=label,
+            launch_agents_dir=launch_agents_dir,
+        )
+    except ValueError as exc:
+        console.print(f"[red]Invalid schedule options:[/red] {exc}")
+        raise typer.Exit(code=1) from None
+
+    if plan.backend == "launchd" and sys.platform != "darwin":
+        console.print("[red]launchd scheduling is only supported on macOS[/red]")
+        raise typer.Exit(code=1)
+
+    if activate and not install:
+        console.print("[red]--activate requires --install[/red]")
+        raise typer.Exit(code=1)
+
+    if status and (install or activate):
+        console.print("[red]--status cannot be combined with --install/--activate[/red]")
+        raise typer.Exit(code=1)
+
+    if activate and plan.backend != "launchd":
+        console.print("[red]--activate is only valid with launchd[/red]")
+        raise typer.Exit(code=1)
+
+    schedule_table = Table(title="Schedule Plan")
+    schedule_table.add_column("Setting", style="cyan")
+    schedule_table.add_column("Value", style="green")
+    schedule_table.add_row("Backend", plan.backend)
+    schedule_table.add_row("Frequency", plan.frequency)
+    schedule_table.add_row("Day", plan.day_of_week or "-")
+    schedule_table.add_row("Time", f"{plan.hour:02}:{plan.minute:02}")
+    schedule_table.add_row("Lookback hours", str(plan.lookback_hours))
+    schedule_table.add_row("Runner", plan.runner)
+    schedule_table.add_row("Project root", str(plan.project_root))
+    console.print(schedule_table)
+
+    if status:
+        if plan.backend == "cron":
+            try:
+                block = get_cron_managed_block(plan.label)
+            except Exception as exc:
+                console.print(f"[red]Failed to read cron status:[/red] {exc}")
+                raise typer.Exit(code=1) from None
+
+            if not block:
+                console.print("\n[yellow]No managed cron schedule found for this label.[/yellow]")
+                console.print("[dim]Install with: feed schedule --backend cron --install[/dim]")
+                return
+
+            console.print("\n[green]✓ Managed cron schedule found[/green]")
+            console.print(f"[dim]Label: {plan.label}[/dim]")
+            console.print("\n[bold]Cron block:[/bold]")
+            console.print(block)
+            return
+
+        plist_path = launchd_plist_path(plan)
+        _, service = launchd_domain_and_service(plan.label)
+        plist_exists = plist_path.exists()
+        loaded = False
+        status_detail = ""
+        if plist_exists:
+            result = subprocess.run(
+                ["launchctl", "print", service],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            loaded = result.returncode == 0
+            if not loaded:
+                status_detail = (result.stderr or result.stdout).strip()
+
+        status_table = Table(title="Launchd Status")
+        status_table.add_column("Check", style="cyan")
+        status_table.add_column("Value", style="green")
+        status_table.add_row("Plist path", str(plist_path))
+        status_table.add_row("Plist exists", "yes" if plist_exists else "no")
+        status_table.add_row("Service", service)
+        status_table.add_row("Loaded", "yes" if loaded else "no")
+        console.print()
+        console.print(status_table)
+
+        if status_detail:
+            console.print(f"\n[yellow]{status_detail}[/yellow]")
+        if not plist_exists:
+            console.print("[dim]Install with: feed schedule --backend launchd --install[/dim]")
+        return
+
+    if plan.backend == "cron":
+        cron_line = build_cron_line(plan)
+        if not install:
+            console.print("\n[bold]Cron entry:[/bold]")
+            console.print(cron_line)
+            console.print(
+                "\n[dim]Use --install to write this managed block into your user crontab.[/dim]"
+            )
+            return
+
+        try:
+            install_cron(plan, replace_existing=replace)
+        except Exception as exc:
+            console.print(f"[red]Failed to install cron schedule:[/red] {exc}")
+            raise typer.Exit(code=1) from None
+
+        console.print("\n[green]✓ Installed cron schedule[/green]")
+        console.print("[dim]Verify with: crontab -l[/dim]")
+        console.print(f"[dim]Logs: {plan.log_file}[/dim]")
+        return
+
+    plist_path = launchd_plist_path(plan)
+    stdout_log = plan.project_root / "logs" / "launchd.stdout.log"
+    stderr_log = plan.project_root / "logs" / "launchd.stderr.log"
+
+    if not install:
+        console.print("\n[bold]Launchd plist path:[/bold]")
+        console.print(str(plist_path))
+        console.print(
+            "\n[dim]Use --install to write + bootstrap. Add --activate to run immediately.[/dim]"
+        )
+        return
+
+    try:
+        plist_path = write_launchd_plist(plan)
+    except Exception as exc:
+        console.print(f"[red]Failed to write launchd plist:[/red] {exc}")
+        raise typer.Exit(code=1) from None
+
+    console.print("\n[green]✓ Wrote launchd plist[/green]")
+    console.print(f"[dim]{plist_path}[/dim]")
+
+    if activate:
+        try:
+            domain, service = activate_launchd(plan, plist_path)
+        except Exception as exc:
+            console.print(f"[red]Failed to activate launchd service:[/red] {exc}")
+            raise typer.Exit(code=1) from None
+        console.print("[green]✓ Activated launchd service[/green]")
+    else:
+        try:
+            domain, service = bootstrap_launchd(plan, plist_path)
+        except Exception as exc:
+            console.print(f"[red]Failed to bootstrap launchd service:[/red] {exc}")
+            raise typer.Exit(code=1) from None
+        console.print("[green]✓ Installed launchd service[/green]")
+
+    console.print("\n[dim]Next commands:[/dim]")
+    console.print(f"[dim]launchctl print {service}[/dim]")
+    console.print(f"[dim]launchctl bootout {service}[/dim]")
+    if not activate:
+        console.print(f"[dim]launchctl kickstart -k {service}[/dim]")
+        console.print(f"[dim]launchctl bootstrap {domain} {plist_path}[/dim]")
+    console.print(f"[dim]stdout: {stdout_log}[/dim]")
+    console.print(f"[dim]stderr: {stderr_log}[/dim]")
 
 
 @app.command()

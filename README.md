@@ -110,6 +110,7 @@ The CLI is called `feed`. Run it via the `./feed` wrapper script (or `uv run fee
 
 ```text
 run      [--send] [--format rich|text|json] [--no-cache]
+schedule [--status] [--backend auto|cron|launchd] [--frequency daily|weekly] [--time HH:MM] [--install]
 ingest
 analyze  [--format rich|text|json] [--no-cache]
 send     [--test] [--format rich|text|json]
@@ -129,6 +130,10 @@ Run the full daily workflow (Ingest → Analyze → display digest):
 ./feed run --format text       # Plain text output
 ./feed run --format json       # JSON output
 ./feed run --send              # Send digest via email instead
+./feed schedule                # Preview default schedule (Fri 17:00)
+./feed schedule --status       # Inspect installed schedule status
+./feed schedule --install      # Install schedule (auto backend)
+./feed schedule --backend cron --install
 ```
 
 ### Individual Commands
@@ -137,6 +142,7 @@ Run the full daily workflow (Ingest → Analyze → display digest):
 |---------|-------------|
 | `./feed init` | Interactive setup wizard (creates `~/.config/feed/`) |
 | `./feed run` | Full pipeline: ingest, analyze, and display digest |
+| `./feed schedule` | Generate/install recurring scheduler jobs for `feed run --send` |
 | `./feed status` | Show pipeline statistics and recent articles |
 | `./feed ingest` | Fetch new articles from feeds |
 | `./feed test --all` | Validate feed URLs and parser health for configured feeds |
@@ -162,6 +168,11 @@ Run the full daily workflow (Ingest → Analyze → display digest):
 - `--max-articles`: Maximum recent entries to inspect per feed (`test`, default `10`).
 - `--clear`: Clear cache entries (`cache` command).
 - `--force`: Overwrite existing XDG config during `init`.
+- `--backend`: Scheduler backend (`auto`, `cron`, `launchd`) for `schedule`.
+- `--frequency`: Schedule cadence (`daily`, `weekly`) for `schedule`.
+- `--time`: Time of day in `HH:MM` (24h) for `schedule`.
+- `--status`: Show installed scheduler status for `schedule`.
+- `--install`: Apply schedule to system scheduler (otherwise preview only).
 
 ## Project Structure
 
