@@ -2,7 +2,7 @@
 
 Your personal newsletter intelligence agent. Aggregates RSS feeds (Substack, blogs, etc.), summarizes them with AI, and delivers a daily digest to your terminal or inbox.
 
-Current CLI version: `v0.2.0`.
+Current CLI version: `v0.3.0`.
 
 ## Features
 
