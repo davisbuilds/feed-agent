@@ -215,13 +215,30 @@ def build_launchd_plist(plan: SchedulePlan) -> dict[str, object]:
         "ProgramArguments": ["/bin/zsh", "-lc", command],
         "WorkingDirectory": str(plan.project_root),
         "EnvironmentVariables": {
-            "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+            "PATH": build_launchd_path(),
         },
         "StartCalendarInterval": start_calendar,
         "StandardOutPath": str(plan.project_root / "logs" / "launchd.stdout.log"),
         "StandardErrorPath": str(plan.project_root / "logs" / "launchd.stderr.log"),
         "RunAtLoad": False,
     }
+
+
+def build_launchd_path() -> str:
+    """Build PATH for launchd jobs, including user-local binaries."""
+    candidates = [
+        str(Path.home() / ".local" / "bin"),
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+    ]
+    # Preserve order while dropping accidental duplicates.
+    unique_paths: list[str] = []
+    for path in candidates:
+        if path not in unique_paths:
+            unique_paths.append(path)
+    return ":".join(unique_paths)
 
 
 def launchd_plist_path(plan: SchedulePlan) -> Path:

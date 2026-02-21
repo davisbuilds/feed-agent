@@ -112,6 +112,11 @@ def test_build_launchd_plist_weekly_has_weekday(tmp_path: Path) -> None:
     assert interval["Hour"] == 17
     assert interval["Minute"] == 0
     assert interval["Weekday"] == 5
+    env = payload["EnvironmentVariables"]
+    assert isinstance(env, dict)
+    assert "PATH" in env
+    path_entries = str(env["PATH"]).split(":")
+    assert str(Path.home() / ".local" / "bin") in path_entries
 
 
 def test_render_cron_managed_block_contains_label_and_entry(tmp_path: Path) -> None:
