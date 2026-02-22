@@ -88,41 +88,5 @@ Ruff is configured with strict rules. Watch for these common issues:
 
 ## CLI Overview
 
-`./feed run` outputs the digest to the terminal by default (rich format). Use `--send` to deliver via email, or `--format` to choose between `rich`, `text`, and `json`.
+Commands: `init`, `run`, `schedule`, `ingest`, `test`, `analyze`, `send`, `status`, `config`, `cache`. Run `feed --help` or `feed <command> --help` for options. See `docs/FEATURES.md` for a detailed reference.
 
-Commands: `init`, `run`, `schedule`, `ingest`, `test`, `analyze`, `send`, `status`, `config`, `cache`.
-
-Quick reference:
-
-```text
-run      [--send] [--format rich|text|json] [--no-cache]
-schedule [--status] [--backend auto|cron|launchd] [--frequency daily|weekly] [--time HH:MM] [--install]
-ingest
-analyze  [--format rich|text|json] [--no-cache]
-send     [--test] [--format rich|text|json]
-test     [--url URL | --name NAME | --all] [--strict] [--timeout N] [--lookback-hours N] [--max-articles N]
-status   [--json]
-config
-cache    [--clear]
-init     [--force]
-```
-
-## Current Status (2026-02-13)
-
-The project is fully functional with multi-provider LLM support, XDG-based configuration, response caching, and retry logic.
-
-### Completed
-
-- Provider-agnostic LLM abstraction (`src/llm/`) with Gemini, OpenAI, and Anthropic.
-- Config migration from `ANTHROPIC_API_KEY` to `LLM_API_KEY` / `LLM_PROVIDER`.
-- XDG config support (`~/.config/feed/config.env`) with `feed init` wizard.
-- Terminal-first digest output with `--format` and `--send` flags.
-- CLI renamed from `digest` to `feed` with global `--verbose` flag.
-- JSON output for `feed status`.
-- CLI robustness fixes (exit codes, timeouts, error handling).
-- `./feed` wrapper script for simplified invocation.
-- Project renamed from Feed Agent to Feed.
-- LLM retry with exponential backoff (`src/llm/retry.py`).
-- SQLite-backed response cache with TTL (`src/storage/cache.py`).
-- `feed cache` command and `--no-cache` flag on `run`/`analyze`.
-- `feed test` command for feed URL/parser diagnostics (`--url`, `--name`, `--all`, `--strict`).

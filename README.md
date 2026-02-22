@@ -144,43 +144,7 @@ Run the full daily workflow (Ingest → Analyze → display digest):
 ./feed schedule --backend cron --install
 ```
 
-### Individual Commands
-
-| Command | Description |
-|---------|-------------|
-| `./feed init` | Interactive setup wizard (creates `~/.config/feed/`) |
-| `./feed run` | Full pipeline: ingest, analyze, and display digest |
-| `./feed schedule` | Generate/install recurring scheduler jobs for `feed run --send` |
-| `./feed status` | Show pipeline statistics and recent articles |
-| `./feed ingest` | Fetch new articles from feeds |
-| `./feed test --all` | Validate feed URLs and parser health for configured feeds |
-| `./feed test --url <feed_url>` | Test a one-off feed URL before adding it |
-| `./feed test --name <feed_name>` | Test one configured feed by name |
-| `./feed analyze` | Summarize pending articles with AI |
-| `./feed send` | Generate and send the email digest |
-| `./feed config` | Verify configuration and show config file locations |
-| `./feed cache` | Show cache statistics |
-| `./feed cache --clear` | Clear cached LLM responses |
-
-### Options
-
-- `--verbose` / `-v`: Enable debug logging.
-- `--format`: Output format (`rich`, `text`, `json`). Applies to `run`, `analyze`, `send`.
-- `--send`: Deliver digest via email instead of printing to terminal.
-- `--no-cache`: Skip cache and force fresh LLM summaries. Applies to `run`, `analyze`.
-- `--test`: Send a test email (`send` command).
-- `--json`: JSON status output (`status` command).
-- `--strict`: `test` fails on parser warnings or zero entries.
-- `--timeout`: Per-feed HTTP timeout in seconds (`test`, default `20`).
-- `--lookback-hours`: Recent-entry window used in feed checks (`test`, default `24`).
-- `--max-articles`: Maximum recent entries to inspect per feed (`test`, default `10`).
-- `--clear`: Clear cache entries (`cache` command).
-- `--force`: Overwrite existing XDG config during `init`.
-- `--backend`: Scheduler backend (`auto`, `cron`, `launchd`) for `schedule`.
-- `--frequency`: Schedule cadence (`daily`, `weekly`) for `schedule`.
-- `--time`: Time of day in `HH:MM` (24h) for `schedule`.
-- `--status`: Show installed scheduler status for `schedule`.
-- `--install`: Apply schedule to system scheduler (otherwise preview only).
+Run `feed --help` or `feed <command> --help` for the full list of options per command. See [docs/FEATURES.md](docs/FEATURES.md) for a detailed CLI and options reference.
 
 ## Project Structure
 
@@ -200,6 +164,17 @@ feed/
 ├── tests/               # Pytest suite
 └── docs/                # Design docs and plans
 ```
+
+## Documentation
+
+- Contributor workflow and PR expectations: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Agent implementation guidance: [AGENTS.md](AGENTS.md)
+- Architecture and code organization: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Feature and CLI reference: [docs/FEATURES.md](docs/FEATURES.md)
+- Runtime operations (env, CI, scripts): [docs/OPERATIONS.md](docs/OPERATIONS.md)
+- Product roadmap snapshot: [docs/ROADMAP.md](docs/ROADMAP.md)
+- Testing strategy: [docs/plans/TEST_PLAN.md](docs/plans/TEST_PLAN.md)
+- Git history and branch policy: [docs/GIT_HISTORY_POLICY.md](docs/GIT_HISTORY_POLICY.md)
 
 ## Development
 
