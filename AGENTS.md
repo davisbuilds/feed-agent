@@ -1,6 +1,8 @@
 # AI Agent Guide
 
-This document is a guide for AI agents working on the Feed project.
+Guidance for coding agents working in this repository.
+
+Newsletter intelligence CLI: fetches RSS feeds, generates AI-powered digests, and delivers them via email.
 
 ## Project Structure
 
@@ -28,6 +30,28 @@ feed/
 ├── tests/               # Pytest suite
 └── docs/                # Project documentation
 ```
+
+## Key Files Reference
+
+| Purpose | Location |
+|---------|----------|
+| CLI entry point (Typer) | `src/cli.py` |
+| Pydantic Settings (XDG + `.env`) | `src/config.py` |
+| Pydantic data models | `src/models.py` |
+| Feed management | `src/ingest/feeds.py` |
+| RSS/XML parsing | `src/ingest/parser.py` |
+| Article summarization | `src/analyze/summarizer.py` |
+| Digest assembly | `src/analyze/digest_builder.py` |
+| LLM prompts | `src/analyze/prompts.py` |
+| LLM client protocol | `src/llm/base.py` |
+| Retry wrapper (exponential backoff) | `src/llm/retry.py` |
+| Email delivery (Resend) | `src/deliver/email.py` |
+| Email template rendering (Jinja2) | `src/deliver/renderer.py` |
+| SQLite database (WAL mode) | `src/storage/db.py` |
+| LLM response cache (TTL) | `src/storage/cache.py` |
+| Feed definitions | `config/feeds.yaml` |
+| CI config | `.github/workflows/ci.yml` |
+| Environment template | `.env.example` |
 
 ## Key Commands
 
@@ -86,10 +110,16 @@ Ruff is configured with strict rules. Watch for these common issues:
 - **Forward-ref type hints**: Use `from __future__ import annotations` + `TYPE_CHECKING` block instead of string annotations like `"Foo | None"` — string annotations trigger ruff F821 (undefined name).
 - **Import ordering**: `from collections.abc` sorts before `from contextlib` — ruff I001 enforces isort-style ordering.
 
+## Testing
+
+**Pre-push check**: Before pushing updates to the remote, run the full CI workflow locally with `uv run ruff check .` and `uv run python -m pytest`.
+
+**TDD**: Use red/green TDD for new features and major changes.
+
 ## CLI Overview
 
 Commands: `init`, `run`, `schedule`, `ingest`, `test`, `analyze`, `send`, `status`, `config`, `cache`. Run `feed --help` or `feed <command> --help` for options. See `docs/system/FEATURES.md` for a detailed reference.
 
 Notable flags:
-- `--copy` on `run` and `analyze`: copies digest as markdown to the system clipboard (uses `pbcopy` on macOS, `xclip`/`xsel` on Linux). Works independently of `--send` and `--format`.
 
+- `--copy` on `run` and `analyze`: copies digest as markdown to the system clipboard (uses `pbcopy` on macOS, `xclip`/`xsel` on Linux). Works independently of `--send` and `--format`.
