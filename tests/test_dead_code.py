@@ -127,7 +127,7 @@ def _extract_all_exports(path: Path) -> list[str]:
 def test_source_modules_are_imported() -> None:
     modules = _module_map()
     all_files = _iter_py_files(SRC_DIR) + _iter_py_files(TESTS_DIR)
-    incoming: dict[str, int] = {module: 0 for module in modules}
+    incoming: dict[str, int] = dict.fromkeys(modules, 0)
 
     for path in all_files:
         for imported_module in _imports_for_file(path, modules):
