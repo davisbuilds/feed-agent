@@ -4,13 +4,30 @@ Your personal newsletter intelligence agent. Aggregates RSS feeds (Substack, blo
 
 Current CLI version: `v0.3.0`.
 
+## Quickstart
+
+```bash
+# 1. Clone and install
+git clone https://github.com/davisbuilds/feed.git
+cd feed
+uv sync
+
+# 2. Run the setup wizard (configures API keys and feeds)
+./feed init
+
+# 3. Run your first digest
+./feed run
+```
+
+You'll need an LLM API key (Gemini, OpenAI, or Anthropic). The wizard will also offer to configure email delivery — this is optional and can be skipped if you only want terminal output. Run `./feed --help` for command info.
+
 ## Features
 
-- **Automated Ingestion**: Concurrently fetches articles from RSS/Atom feeds.
+- **Automated Ingestion**: Concurrently fetches articles from Substack, RSS, and Atom feeds.
 - **AI-Powered Analysis**: Summarizes articles, extracts key takeaways, and synthesizes trends.
 - **Multi-Provider LLM**: Supports Google Gemini (default), OpenAI, and Anthropic.
 - **Smart Categorization**: Groups updates by category (e.g., Tech, AI, Business) for easier reading.
-- **Terminal-First Output**: Rich, plain text, or JSON output to the terminal; email delivery via `--send`; clipboard copy via `--copy`.
+- **Terminal-First Output**: Rich, plain text, or JSON output to the terminal; email delivery via `--send` (requires a [Resend](https://resend.com) account and a verified sender domain); clipboard copy via `--copy`.
 - **Local First**: Stores all data in a local SQLite database for privacy and speed.
 - **XDG Config**: Global config at `~/.config/feed/` so you can run `feed` from any directory.
 - **Feed Diagnostics**: `feed test` validates URL reachability, parser health, redirects, and entry counts.
@@ -19,7 +36,7 @@ Current CLI version: `v0.3.0`.
 ## Tech Stack
 
 - **Python 3.12+**
-- **LLM**: Gemini, OpenAI, or Anthropic (provider-agnostic abstraction)
+- **LLM**: Gemini, OpenAI, Anthropic, etc
 - **Email**: Resend API
 - **CLI**: Typer & Rich
 - **Data**: SQLite & Pydantic
@@ -48,17 +65,17 @@ uv sync
 
 ### 2b. Global CLI Install / Reinstall
 
-If you want `feed` available globally (not only `./feed` from this repo), install as an editable uv tool:
+If you want `feed` available globally (not only `./feed` from this repo), install as an editable uv tool from the repo root:
 
 ```bash
-uv tool install --editable /Users/dg-mac-mini/Dev/feed
+uv tool install --editable .
 ```
 
 To refresh a stale global install after local updates:
 
 ```bash
 uv tool uninstall feed
-uv tool install --editable /Users/dg-mac-mini/Dev/feed
+uv tool install --editable .
 ```
 
 ### 3. Configuration
@@ -71,6 +88,8 @@ The quickest way to get started is the interactive setup wizard:
 
 This creates `~/.config/feed/config.env` with your API keys and copies a sample `feeds.yaml`. You can then run `feed` from any directory.
 
+The email configuration step is **optional** — press Enter to skip it if you only want terminal output. Email delivery via `--send` requires a [Resend](https://resend.com) account and a verified sender domain. You can add these settings later by re-running `feed init --force`.
+
 #### Manual configuration
 
 Alternatively, create a `.env` file in the project root (takes priority over the XDG config):
@@ -79,9 +98,12 @@ Alternatively, create a `.env` file in the project root (takes priority over the
 LLM_PROVIDER=gemini            # gemini (default), openai, or anthropic
 LLM_API_KEY=your_api_key
 # LLM_MODEL=                   # optional; defaults per provider
-RESEND_API_KEY=your_resend_api_key
-EMAIL_FROM=digest@yourdomain.com
-EMAIL_TO=you@example.com
+
+# Required only for email delivery (feed run --send)
+# Needs a Resend account (resend.com) and a verified sender domain
+# RESEND_API_KEY=your_resend_api_key
+# EMAIL_FROM=digest@yourdomain.com
+# EMAIL_TO=you@example.com
 ```
 
 Config is loaded from two locations (higher priority wins):

@@ -250,21 +250,39 @@ def init(
         raise typer.Exit(code=1)
 
     # Email settings
-    console.print("\n[bold cyan]Email Configuration[/bold cyan]")
+    console.print("\n[bold cyan]Email Configuration (optional)[/bold cyan]")
+    console.print(
+        "[dim]Required only for 'feed run --send'. "
+        "Needs a Resend account (resend.com) and a verified sender domain. "
+        "Press Enter to skip.[/dim]"
+    )
     resend_api_key = typer.prompt(
         "Resend API key",
+        default="",
         hide_input=True,
     )
 
-    if not resend_api_key.strip():
-        console.print("[red]Resend API key cannot be empty[/red]")
-        raise typer.Exit(code=1)
-
-    email_from = typer.prompt("Sender email (e.g., digest@yourdomain.com)")
-    email_to = typer.prompt("Recipient email")
+    email_from = ""
+    email_to = ""
+    if resend_api_key.strip():
+        email_from = typer.prompt("Sender email (e.g., digest@yourdomain.com)")
+        email_to = typer.prompt("Recipient email")
 
     # Create config directory
     XDG_CONFIG_PATH.mkdir(parents=True, exist_ok=True)
+
+    # Build email config block
+    if resend_api_key.strip():
+        email_config = f"""# Email Settings (Resend)
+RESEND_API_KEY={resend_api_key}
+EMAIL_FROM={email_from}
+EMAIL_TO={email_to}"""
+    else:
+        email_config = """# Email Settings (Resend) — not configured
+# To enable 'feed run --send', add:
+# RESEND_API_KEY=your_key
+# EMAIL_FROM=digest@yourdomain.com
+# EMAIL_TO=you@example.com"""
 
     # Write config file
     config_content = f"""# Feed Configuration
@@ -278,10 +296,7 @@ DATA_DIR={XDG_CONFIG_PATH / "data"}
 LLM_PROVIDER={provider}
 LLM_API_KEY={api_key}
 
-# Email Settings (Resend)
-RESEND_API_KEY={resend_api_key}
-EMAIL_FROM={email_from}
-EMAIL_TO={email_to}
+{email_config}
 
 # Optional: Override defaults
 # LLM_MODEL=
@@ -314,11 +329,17 @@ EMAIL_TO={email_to}
     else:
         console.print("[dim]No sample feeds.yaml found to copy[/dim]")
 
+    email_status = (
+        "Configured"
+        if resend_api_key.strip()
+        else "Not configured (run 'feed init --force' to add later)"
+    )
     # Summary
     console.print(Panel.fit(
         "[bold green]Setup complete![/bold green]\n\n"
         f"Config: {config_file}\n"
-        f"Feeds: {feeds_dest if feeds_dest.exists() else 'Not configured'}\n\n"
+        f"Feeds:  {feeds_dest if feeds_dest.exists() else 'Not configured'}\n"
+        f"Email:  {email_status}\n\n"
         "[dim]Run 'feed config' to verify, or 'feed run' to start[/dim]",
         border_style="green",
     ))

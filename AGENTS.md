@@ -1,8 +1,6 @@
-# AI Agent Guide
+# AGENTS.md
 
-Guidance for coding agents working in this repository.
-
-Newsletter intelligence CLI: fetches RSS feeds, generates AI-powered digests, and delivers them via email.
+`feed` is a newsletter intelligence CLI that fetches RSS feeds, generates AI-powered digests, and delivers them via email/terminal.
 
 ## Project Structure
 

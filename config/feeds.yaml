@@ -1,4 +1,4 @@
-# Substack Digest Agent - Feed Configuration
+# Feed Configuration
 #
 # Format:
 #   feed_name:
@@ -14,6 +14,12 @@ feeds:
     category: Tech Strategy
     priority: 5
     notes: Ben Thompson's analysis - always worth reading
+
+  tbpn:
+    url: https://tbpn.substack.com/feed/
+    category: General
+    priority: 5
+    notes: Tech & Business podcast
 
   # General
   astral_codex:
