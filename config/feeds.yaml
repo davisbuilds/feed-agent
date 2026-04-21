@@ -6,6 +6,9 @@
 #     category: Category for grouping (optional)
 #     priority: 1-5, higher = more important (optional)
 #     notes: Personal notes about this feed (optional)
+#
+# This file ships with a small set of example feeds to demonstrate the
+# format. Replace or extend with your own subscriptions.
 
 feeds:
   # Technology
@@ -15,30 +18,12 @@ feeds:
     priority: 5
     notes: Ben Thompson's analysis - always worth reading
 
-  tbpn:
-    url: https://tbpn.substack.com/feed/
-    category: General
-    priority: 5
-    notes: Tech & Business podcast
-
   # General
   astral_codex:
     url: https://astralcodexten.substack.com/feed/
     category: General
     priority: 3
     notes: Scott Alexander's newsletter
-  
-  china_talk:
-    url: https://chinatalk.media/feed/
-    category: General
-    priority: 3
-    notes: Jordan Schneider on China's tech and policy
-
-  greenwald:
-    url: https://greenwald.substack.com/feed
-    category: General
-    priority: 3
-    notes: Glenn Greenwald on politics and media
 
   # AI
   simon_willison:
@@ -53,47 +38,11 @@ feeds:
     priority: 5
     notes: Prof. Ethan Mollick on AI implications
 
-  interconnects:
-    url: https://interconnects.ai/feed/
-    category: AI & Development
-    priority: 4
-    notes: Nathan Lambert on AI research and policy
-
-  hyperdimensional:
-    url: https://hyperdimensional.co/feed/
-    category: AI & Development
-    priority: 4
-    notes: Dean Ball's AI musings
-
-  steipete:
-    url: https://steipete.me/rss.xml
-    category: AI & Development
-    priority: 4
-    notes: Peter Steinberger (iOS, AI, Engineering)
-
-  bens_bites:
-    url: https://www.bensbites.com/feed/
-    category: AI & Development
-    priority: 4
-    notes: Ben Trossel's daily AI news digest
-
   epoch_ai:
     url: https://epochai.substack.com/feed/
     category: AI & Development
     priority: 4
     notes: Epoch AI's analysis and data
-  
-  import_ai:
-    url: https://importai.substack.com/feed/
-    category: AI & Development
-    priority: 4
-    notes: Jack Clark's AI analysis
-
-  latent_space:
-    url: https://latent.space/feed/
-    category: AI & Development
-    priority: 4
-    notes: Swyx & Alessio on AI
 
   # Example Substacks (replace with your actual subscriptions)
   # example_newsletter:
